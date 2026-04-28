@@ -33,12 +33,12 @@ export default function Home() {
   }
 
   const mockAds = [
-    {id:'m1', category:'immo-vente', title:'Villa 4 chambres — Kigali, Niboye', price:185000000},
-    {id:'m2', category:'voiture', title:'Toyota RAV4 2019 — 45 000 km', price:26500000},
-    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra — Neuf', price:980000},
-    {id:'m4', category:'immo-location', title:'Appartement 3 pièces meublé', price:450000},
-    {id:'m5', category:'moto', title:'Honda CB125 2022 — 18 000 km', price:3200000},
-    {id:'m6', category:'animaux', title:'Vache laitière Ankole — 2 ans', price:1800000},
+    {id:'m1', category:'immo-vente', title:'Villa 4 chambres — Kigali, Niboye', price:185000000, images:[]},
+    {id:'m2', category:'voiture', title:'Toyota RAV4 2019 — 45 000 km', price:26500000, images:[]},
+    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra — Neuf', price:980000, images:[]},
+    {id:'m4', category:'immo-location', title:'Appartement 3 pièces meublé', price:450000, images:[]},
+    {id:'m5', category:'moto', title:'Honda CB125 2022 — 18 000 km', price:3200000, images:[]},
+    {id:'m6', category:'animaux', title:'Vache laitière Ankole — 2 ans', price:1800000, images:[]},
   ]
 
   const displayAds = ads.length > 0 ? ads : mockAds
@@ -124,8 +124,14 @@ export default function Home() {
             <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
               {displayAds.map((ad: any) => (
                 <div key={ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow:'0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer'}}>
-                  <div style={{height:'160px', background: catBg[ad.category] || '#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem'}}>
-                    {catEmoji[ad.category] || '📦'}
+                  <div style={{height:'160px', background: catBg[ad.category] || '#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem', overflow:'hidden', position:'relative'}}>
+                    {ad.images && ad.images.length > 0 ? (
+                      <img src={ad.images[0]} alt={ad.title}
+                        style={{width:'100%', height:'100%', objectFit:'cover'}}
+                      />
+                    ) : (
+                      catEmoji[ad.category] || '📦'
+                    )}
                   </div>
                   <div style={{padding:'13px 14px'}}>
                     <div style={{fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', marginBottom:'4px'}}>{ad.category}</div>
