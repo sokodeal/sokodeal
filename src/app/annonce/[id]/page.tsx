@@ -71,8 +71,6 @@ export default function AnnonceDetail() {
   )
 
   const hasPhotos = ad.images && ad.images.length > 0
-  const waPhone = ad.phone ? ad.phone.replace(/\s+/g, '').replace('+', '') : ''
-  const waText = encodeURIComponent('Bonjour, je suis interesse par votre annonce sur SokoDeal : ' + ad.title)
 
   return (
     <div style={{minHeight:'100vh', background:'#f0f4f1'}}>
@@ -109,7 +107,7 @@ export default function AnnonceDetail() {
           <span>›</span>
           <span>{catLabel[ad.category] || ad.category}</span>
           <span>›</span>
-          <span style={{color:'#111a14', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'300px'}}>{ad.title}</span>
+          <span style={{color:'#111a14', fontWeight:600}}>{ad.title}</span>
         </div>
       </div>
 
@@ -234,23 +232,6 @@ export default function AnnonceDetail() {
                 marginTop:'10px', boxSizing:'border-box'
               }}>
                 📞 {ad.phone}
-              </a>
-            )}
-
-            {ad.phone && (
-              
-                href={'https://wa.me/' + waPhone + '?text=' + waText}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                  width:'100%', padding:'12px', background:'#25D366',
-                  borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700,
-                  fontSize:'0.95rem', color:'white', textDecoration:'none',
-                  marginTop:'8px', boxSizing:'border-box'
-                }}
-              >
-                💬 Contacter sur WhatsApp
               </a>
             )}
           </div>
