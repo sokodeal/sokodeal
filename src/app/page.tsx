@@ -15,7 +15,8 @@ export default function Home() {
   const [filterPriceMax, setFilterPriceMax] = useState('')
   const [sortBy, setSortBy] = useState('recent')
   const [showFilters, setShowFilters] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [toast, setToast] = useState<any>(null)
 
   const villes = [
     'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
@@ -58,20 +59,58 @@ export default function Home() {
   useEffect(() => {
     const fetchAds = async () => {
       const { data } = await supabase.from('ads').select('*').eq('is_active', true).order('created_at', { ascending: false })
-      if (data) { setAds(data); setFiltered(data) }
+      if (data) {
+        const now = new Date().toISOString()
+        const { data: boosts } = await supabase.from('boosts').select('ad_id').eq('is_active', true).gt('ends_at', now)
+        const boostedIds = new Set((boosts || []).map((b: any) => b.ad_id))
+        const adsWithBoost = data.map(ad => ({ ...ad, is_boosted: boostedIds.has(ad.id) }))
+        const sorted = [
+          ...adsWithBoost.filter(a => a.is_boosted),
+          ...adsWithBoost.filter(a => !a.is_boosted)
+        ]
+        setAds(sorted)
+        setFiltered(sorted)
+      }
       setLoading(false)
     }
     fetchAds()
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      if (user) loadUnread(user.id)
     }
     getUser()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) loadUnread(session.user.id)
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  const loadUnread = async (userId: string) => {
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', userId)
+      .eq('is_read', false)
+    setUnreadCount(count || 0)
+
+    // Realtime notifications
+    const channel = supabase.channel('notifs-home')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: 'receiver_id=eq.' + userId
+      }, (payload: any) => {
+        setUnreadCount(c => c + 1)
+        setToast({ text: 'Nouveau message recu !', icon: '💬' })
+        setTimeout(() => setToast(null), 4000)
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }
 
   useEffect(() => {
     let result = [...ads]
@@ -97,24 +136,21 @@ export default function Home() {
   const hasFilters = search || filterCat || filterVille || filterPriceMin || filterPriceMax || sortBy !== 'recent'
 
   const mockAds = [
-    {id:'m1', category:'immo-vente', title:'Villa 4 chambres Kigali Niboye', price:185000000, images:[], province:'Kigali'},
-    {id:'m2', category:'voiture', title:'Toyota RAV4 2019 45 000 km', price:26500000, images:[], province:'Kigali'},
-    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra Neuf', price:980000, images:[], province:'Musanze'},
-    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Butare'},
-    {id:'m5', category:'moto', title:'Honda CB125 2022 18 000 km', price:3200000, images:[], province:'Gisenyi'},
-    {id:'m6', category:'animaux', title:'Vache laitiere Ankole 2 ans', price:1800000, images:[], province:'Rwamagana'},
+    {id:'m1', category:'immo-vente', title:'Villa 4 chambres Kigali Niboye', price:185000000, images:[], province:'Kigali', is_boosted:true},
+    {id:'m2', category:'voiture', title:'Toyota RAV4 2019 45 000 km', price:26500000, images:[], province:'Kigali', is_boosted:false},
+    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra Neuf', price:980000, images:[], province:'Musanze', is_boosted:false},
+    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Butare', is_boosted:false},
+    {id:'m5', category:'moto', title:'Honda CB125 2022 18 000 km', price:3200000, images:[], province:'Gisenyi', is_boosted:false},
+    {id:'m6', category:'animaux', title:'Vache laitiere Ankole 2 ans', price:1800000, images:[], province:'Rwamagana', is_boosted:false},
   ]
 
   const displayAds = ads.length > 0 ? filtered : mockAds
-
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   return (
     <>
       <style>{`
         @media (max-width: 768px) {
           .nav-desktop { display: none !important; }
-          .nav-mobile { display: flex !important; }
           .hero-title { font-size: 1.6rem !important; }
           .ads-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
           .filters-grid { grid-template-columns: 1fr 1fr !important; }
@@ -131,7 +167,37 @@ export default function Home() {
           .filters-grid { grid-template-columns: 1fr !important; }
           .hero-title { font-size: 1.4rem !important; }
         }
+        @keyframes slideIn {
+          from { transform: translateX(120%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(120%); opacity: 0; }
+        }
       `}</style>
+
+      {/* TOAST NOTIFICATION */}
+      {toast && (
+        <div style={{
+          position:'fixed', bottom:'24px', right:'24px', zIndex:9999,
+          background:'#111a14', color:'white', padding:'14px 20px',
+          borderRadius:'12px', boxShadow:'0 8px 32px rgba(0,0,0,0.3)',
+          display:'flex', alignItems:'center', gap:'10px',
+          fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem',
+          animation:'slideIn 0.3s ease',
+          maxWidth:'300px'
+        }}>
+          <span style={{fontSize:'1.3rem'}}>{toast.icon}</span>
+          <div>
+            <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, marginBottom:'2px'}}>{toast.text}</div>
+            <button onClick={() => window.location.href='/messages'} style={{background:'#f5a623', border:'none', borderRadius:'6px', padding:'4px 10px', fontSize:'0.78rem', fontWeight:700, color:'#111a14', cursor:'pointer'}}>
+              Voir les messages →
+            </button>
+          </div>
+          <button onClick={() => setToast(null)} style={{background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:'1.1rem', marginLeft:'4px'}}>×</button>
+        </div>
+      )}
 
       <header style={{background:'#0f5233', position:'sticky', top:0, zIndex:100, boxShadow:'0 2px 16px rgba(0,0,0,0.18)'}}>
         <div className="header-inner" style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'68px', gap:'12px'}}>
@@ -150,9 +216,16 @@ export default function Home() {
 
           <div className="header-actions" style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
             {user ? (
-              <button onClick={() => window.location.href='/profil'} style={{display:'flex', alignItems:'center', gap:'6px', padding:'7px 14px', background:'rgba(255,255,255,0.12)', border:'1.5px solid rgba(255,255,255,0.35)', borderRadius:'8px', color:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
-                <div style={{width:'26px', height:'26px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'0.8rem', color:'#111a14'}}>
-                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+              <button onClick={() => window.location.href='/profil'} style={{display:'flex', alignItems:'center', gap:'6px', padding:'7px 14px', background:'rgba(255,255,255,0.12)', border:'1.5px solid rgba(255,255,255,0.35)', borderRadius:'8px', color:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer', position:'relative'}}>
+                <div style={{position:'relative'}}>
+                  <div style={{width:'26px', height:'26px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'0.8rem', color:'#111a14'}}>
+                    {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                  {unreadCount > 0 && (
+                    <div style={{position:'absolute', top:'-4px', right:'-4px', width:'16px', height:'16px', background:'#e74c3c', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.6rem', fontWeight:800, color:'white', border:'2px solid #0f5233'}}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </div>
+                  )}
                 </div>
                 <span style={{display:'none'}} className="nav-desktop">Mon compte</span>
               </button>
@@ -165,6 +238,17 @@ export default function Home() {
                   S inscrire
                 </button>
               </>
+            )}
+            {/* ICONE MESSAGES */}
+            {user && (
+              <button onClick={() => window.location.href='/messages'} style={{position:'relative', padding:'7px 12px', background:'rgba(255,255,255,0.12)', border:'1.5px solid rgba(255,255,255,0.35)', borderRadius:'8px', color:'white', cursor:'pointer', fontSize:'1.1rem'}}>
+                💬
+                {unreadCount > 0 && (
+                  <div style={{position:'absolute', top:'-4px', right:'-4px', width:'16px', height:'16px', background:'#e74c3c', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.6rem', fontWeight:800, color:'white', border:'2px solid #0f5233'}}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
+                )}
+              </button>
             )}
             <button className="deposer-btn" onClick={() => window.location.href='/publier'} style={{padding:'8px 16px', background:'white', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#0f5233', cursor:'pointer', whiteSpace:'nowrap'}}>
               + Deposer
@@ -290,12 +374,17 @@ export default function Home() {
           ) : (
             <div className="ads-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
               {displayAds.map((ad: any) => (
-                <div key={ad.id} onClick={() => window.location.href='/annonce/' + ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow:'0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer'}}>
+                <div key={ad.id} onClick={() => window.location.href='/annonce/' + ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow: ad.is_boosted ? '0 4px 24px rgba(245,166,35,0.3)' : '0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer', border: ad.is_boosted ? '2px solid #f5a623' : '2px solid transparent'}}>
                   <div style={{height:'150px', background: catBg[ad.category] || '#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3rem', overflow:'hidden', position:'relative'}}>
                     {ad.images && ad.images.length > 0 ? (
                       <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                     ) : (
                       catEmoji[ad.category] || '📦'
+                    )}
+                    {ad.is_boosted && (
+                      <div style={{position:'absolute', top:'8px', right:'8px', background:'#f5a623', color:'#111a14', padding:'3px 8px', borderRadius:'6px', fontSize:'0.68rem', fontWeight:800}}>
+                        ⚡ Booste
+                      </div>
                     )}
                   </div>
                   <div style={{padding:'12px'}}>
@@ -334,7 +423,6 @@ export default function Home() {
                 <div style={{fontSize:'0.75rem', color:'#6b7c6e'}}>📍 {job.loc} · {job.type}</div>
               </div>
               <div style={{textAlign:'right', flexShrink:0}}>
-                <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'0.85rem', display:'none'}} className="nav-desktop">{job.salary}</div>
                 <button onClick={() => window.location.href='/auth'} style={{marginTop:'6px', padding:'6px 14px', background:'#1a3a5c', color:'white', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.78rem', cursor:'pointer'}}>Postuler</button>
               </div>
             </div>
