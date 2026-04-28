@@ -57,6 +57,7 @@ export default function ProfilPage() {
     { id: 'annonces', label: '📋 Mes annonces', count: ads.length },
     { id: 'profil', label: '👤 Mon profil', count: null },
     { id: 'abonnement', label: '⭐ Abonnement', count: null },
+    { id: 'boosts', label: '🚀 Boosts', count: null },
     { id: 'stats', label: '📊 Statistiques', count: null },
     { id: 'vendus', label: '✅ Vendus', count: 0 },
   ]
@@ -237,7 +238,6 @@ export default function ProfilPage() {
                   )}
                 </div>
               ))}
-
               <div style={{gridColumn:'span 2'}}>
                 <label style={{display:'block', fontSize:'0.82rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>📧 Email</label>
                 <div style={{padding:'11px 14px', background:'#f0f0f0', borderRadius:'9px', fontSize:'0.92rem', color:'#6b7c6e'}}>
@@ -292,6 +292,67 @@ export default function ProfilPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: BOOSTS */}
+        {activeTab === 'boosts' && (
+          <div>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px'}}>🚀 Booster une annonce</h2>
+            <p style={{color:'#6b7c6e', fontSize:'0.88rem', marginBottom:'20px'}}>Un boost met votre annonce en tête de liste et lui donne 10× plus de visibilité.</p>
+
+            <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'28px'}}>
+              {[
+                { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#e67e22', features:['Top des résultats 3 jours','Badge "Boosté"','2× plus de vues'] },
+                { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top des résultats 7 jours','Badge "Boosté"','5× plus de vues'], popular:true },
+                { name:'Boost 30 jours', price:'12 000', icon:'💎', color:'#1a3a5c', features:['Top des résultats 30 jours','Badge "Premium"','10× plus de vues'] },
+              ].map((boost, i) => (
+                <div key={i} style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow: boost.popular ? '0 8px 32px rgba(26,122,74,0.2)' : '0 2px 12px rgba(0,0,0,0.07)', border: boost.popular ? '2px solid #1a7a4a' : '2px solid transparent', position:'relative', textAlign:'center'}}>
+                  {boost.popular && (
+                    <div style={{position:'absolute', top:'-12px', left:'50%', transform:'translateX(-50%)', background:'#1a7a4a', color:'white', padding:'4px 16px', borderRadius:'20px', fontSize:'0.75rem', fontWeight:700, whiteSpace:'nowrap'}}>
+                      🔥 Le plus vendu
+                    </div>
+                  )}
+                  <div style={{fontSize:'2.5rem', marginBottom:'8px'}}>{boost.icon}</div>
+                  <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:boost.color, marginBottom:'6px'}}>{boost.name}</h3>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.8rem', marginBottom:'4px'}}>{boost.price} <span style={{fontSize:'0.85rem', fontWeight:600}}>RWF</span></div>
+                  <div style={{marginBottom:'16px', marginTop:'12px'}}>
+                    {boost.features.map((f, j) => (
+                      <div key={j} style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px', fontSize:'0.83rem', textAlign:'left'}}>
+                        <span style={{color:boost.color, fontWeight:700}}>✓</span> {f}
+                      </div>
+                    ))}
+                  </div>
+                  <button style={{width:'100%', padding:'11px', background:boost.color, color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', cursor:'pointer'}}>
+                    Booster maintenant
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)'}}>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'16px'}}>📋 Choisir l'annonce à booster</h3>
+              {ads.length === 0 ? (
+                <p style={{color:'#6b7c6e', fontSize:'0.9rem'}}>Vous n'avez pas encore d'annonce à booster.</p>
+              ) : (
+                <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                  {ads.map((ad: any) => (
+                    <div key={ad.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', background:'#f5f7f5', borderRadius:'10px'}}>
+                      <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                        <span style={{fontSize:'1.5rem'}}>{catEmoji[ad.category] || '📦'}</span>
+                        <div>
+                          <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem'}}>{ad.title}</div>
+                          <div style={{fontSize:'0.78rem', color:'#6b7c6e'}}>{Number(ad.price).toLocaleString()} RWF</div>
+                        </div>
+                      </div>
+                      <button style={{padding:'7px 16px', background:'#f5a623', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.8rem', color:'#111a14', cursor:'pointer'}}>
+                        ⚡ Booster
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
