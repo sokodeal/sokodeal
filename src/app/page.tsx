@@ -10,10 +10,49 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
-  const [filterProvince, setFilterProvince] = useState('')
+  const [filterVille, setFilterVille] = useState('')
   const [filterPriceMin, setFilterPriceMin] = useState('')
   const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [sortBy, setSortBy] = useState('recent')
   const [showFilters, setShowFilters] = useState(false)
+
+  const villes = [
+    'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
+    'Byumba','Rwamagana','Nyamata','Kibungo','Gitarama','Muhanga','Huye',
+    'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
+  ]
+
+  const categories = [
+    { value:'immo-vente', label:'🏡 Immobilier Vente' },
+    { value:'immo-location', label:'🏢 Immobilier Location' },
+    { value:'immo-terrain', label:'🌿 Terrain' },
+    { value:'voiture', label:'🚗 Voitures' },
+    { value:'moto', label:'🛵 Motos' },
+    { value:'electronique', label:'📱 Electronique' },
+    { value:'mode', label:'👗 Mode et Beaute' },
+    { value:'maison', label:'🛋️ Maison et Jardin' },
+    { value:'emploi', label:'💼 Emploi' },
+    { value:'animaux', label:'🐄 Animaux' },
+    { value:'services', label:'🏗️ Services' },
+    { value:'agriculture', label:'🌾 Agriculture' },
+    { value:'materiaux', label:'🧱 Materiaux Construction' },
+    { value:'sante', label:'💊 Sante et Beaute' },
+    { value:'sport', label:'⚽ Sport et Loisirs' },
+    { value:'education', label:'📚 Education' },
+  ]
+
+  const catEmoji: any = {
+    'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿',
+    'voiture':'🚗','moto':'🛵','electronique':'📱','mode':'👗',
+    'maison':'🛋️','emploi':'💼','animaux':'🐄','services':'🏗️',
+    'agriculture':'🌾','materiaux':'🧱','sante':'💊','sport':'⚽','education':'📚'
+  }
+  const catBg: any = {
+    'immo-vente':'#e8f5ee','immo-location':'#f3e5f5','immo-terrain':'#e0f2f1',
+    'voiture':'#fff3e0','moto':'#fff8e1','electronique':'#e3f2fd','mode':'#fce4ec',
+    'maison':'#efebe9','emploi':'#e0f7fa','animaux':'#efebe9','services':'#f9fbe7',
+    'agriculture':'#f1f8e9','materiaux':'#fbe9e7','sante':'#fce4ec','sport':'#e8eaf6','education':'#fff8e1'
+  }
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -36,7 +75,6 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -51,43 +89,56 @@ export default function Home() {
       )
     }
     if (filterCat) result = result.filter(ad => ad.category === filterCat)
-    if (filterProvince) result = result.filter(ad => ad.province === filterProvince)
+    if (filterVille) result = result.filter(ad =>
+      ad.province?.toLowerCase().includes(filterVille.toLowerCase()) ||
+      ad.district?.toLowerCase().includes(filterVille.toLowerCase())
+    )
     if (filterPriceMin) result = result.filter(ad => ad.price >= parseInt(filterPriceMin))
     if (filterPriceMax) result = result.filter(ad => ad.price <= parseInt(filterPriceMax))
+
+    if (sortBy === 'recent') result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    else if (sortBy === 'moins-cher') result.sort((a, b) => a.price - b.price)
+    else if (sortBy === 'plus-cher') result.sort((a, b) => b.price - a.price)
+
     setFiltered(result)
-  }, [search, filterCat, filterProvince, filterPriceMin, filterPriceMax, ads])
+  }, [search, filterCat, filterVille, filterPriceMin, filterPriceMax, sortBy, ads])
 
   const resetFilters = () => {
     setSearch('')
     setFilterCat('')
-    setFilterProvince('')
+    setFilterVille('')
     setFilterPriceMin('')
     setFilterPriceMax('')
+    setSortBy('recent')
   }
 
-  const hasFilters = search || filterCat || filterProvince || filterPriceMin || filterPriceMax
-
-  const catEmoji: any = {
-    'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿',
-    'voiture':'🚗','moto':'🛵','electronique':'📱',
-    'mode':'👗','maison':'🛋️','emploi':'💼','animaux':'🐄','services':'🏗️'
-  }
-  const catBg: any = {
-    'immo-vente':'#e8f5ee','immo-location':'#f3e5f5','immo-terrain':'#e0f2f1',
-    'voiture':'#fff3e0','moto':'#fff8e1','electronique':'#e3f2fd',
-    'mode':'#fce4ec','maison':'#efebe9','emploi':'#e0f7fa','animaux':'#efebe9','services':'#f9fbe7'
-  }
+  const hasFilters = search || filterCat || filterVille || filterPriceMin || filterPriceMax || sortBy !== 'recent'
 
   const mockAds = [
     {id:'m1', category:'immo-vente', title:'Villa 4 chambres — Kigali, Niboye', price:185000000, images:[], province:'Kigali'},
     {id:'m2', category:'voiture', title:'Toyota RAV4 2019 — 45 000 km', price:26500000, images:[], province:'Kigali'},
-    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra — Neuf', price:980000, images:[], province:'Kigali'},
-    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Nord'},
-    {id:'m5', category:'moto', title:'Honda CB125 2022 — 18 000 km', price:3200000, images:[], province:'Sud'},
-    {id:'m6', category:'animaux', title:'Vache laitiere Ankole — 2 ans', price:1800000, images:[], province:'Est'},
+    {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra — Neuf', price:980000, images:[], province:'Musanze'},
+    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Butare'},
+    {id:'m5', category:'moto', title:'Honda CB125 2022 — 18 000 km', price:3200000, images:[], province:'Gisenyi'},
+    {id:'m6', category:'animaux', title:'Vache laitiere Ankole — 2 ans', price:1800000, images:[], province:'Rwamagana'},
   ]
 
   const displayAds = ads.length > 0 ? filtered : mockAds
+
+  const navCats = [
+    {cat:'', label:'🏠 Tout'},
+    {cat:'immo-vente', label:'🏡 Immobilier'},
+    {cat:'voiture', label:'🚗 Vehicules'},
+    {cat:'electronique', label:'📱 Electronique'},
+    {cat:'mode', label:'👗 Mode'},
+    {cat:'agriculture', label:'🌾 Agriculture'},
+    {cat:'materiaux', label:'🧱 Construction'},
+    {cat:'sante', label:'💊 Sante'},
+    {cat:'sport', label:'⚽ Sport'},
+    {cat:'education', label:'📚 Education'},
+    {cat:'animaux', label:'🐄 Animaux'},
+    {cat:'services', label:'🏗️ Services'},
+  ]
 
   return (
     <>
@@ -131,25 +182,19 @@ export default function Home() {
           </div>
         </div>
         <nav style={{background:'#1a7a4a', padding:'0 5%', display:'flex', overflowX:'auto'}}>
-          {[
-            {id:'main', cat:'', label:'🏠 Tout'},
-            {id:'main', cat:'immo-vente', label:'🏡 Immobilier'},
-            {id:'main', cat:'voiture', label:'🚗 Vehicules'},
-            {id:'main', cat:'electronique', label:'📱 Electronique'},
-            {id:'main', cat:'mode', label:'👗 Mode'},
-            {id:'jobs', cat:'', label:'💼 Jobs'},
-            {id:'main', cat:'moto', label:'🛵 Motos'},
-            {id:'main', cat:'animaux', label:'🐄 Animaux'},
-          ].map((item, i) => (
-            <a key={i} href="#" onClick={() => { setActiveSection(item.id); setFilterCat(item.cat) }} style={{
-              display:'flex', alignItems:'center', gap:'6px', padding:'11px 18px',
-              color: item.label.includes('Jobs') ? '#f5a623' : 'rgba(255,255,255,0.8)',
-              textDecoration:'none', fontSize:'0.88rem',
-              fontWeight: filterCat === item.cat && activeSection === item.id ? 700 : 500,
-              whiteSpace:'nowrap',
-              borderBottom: filterCat === item.cat && activeSection === item.id ? '3px solid #f5a623' : '3px solid transparent'
+          {navCats.map((item, i) => (
+            <a key={i} href="#" onClick={() => { setActiveSection('main'); setFilterCat(item.cat) }} style={{
+              display:'flex', alignItems:'center', gap:'6px', padding:'11px 16px',
+              color:'rgba(255,255,255,0.85)', textDecoration:'none', fontSize:'0.85rem',
+              fontWeight: filterCat === item.cat ? 700 : 500, whiteSpace:'nowrap',
+              borderBottom: filterCat === item.cat ? '3px solid #f5a623' : '3px solid transparent'
             }}>{item.label}</a>
           ))}
+          <a href="#" onClick={() => setActiveSection('jobs')} style={{
+            display:'flex', alignItems:'center', gap:'6px', padding:'11px 16px',
+            color:'#f5a623', textDecoration:'none', fontSize:'0.85rem', fontWeight:700, whiteSpace:'nowrap',
+            borderBottom: activeSection === 'jobs' ? '3px solid #f5a623' : '3px solid transparent'
+          }}>💼 Jobs</a>
         </nav>
       </header>
 
@@ -184,12 +229,19 @@ export default function Home() {
                 </button>
                 {hasFilters && (
                   <button onClick={resetFilters} style={{padding:'8px 14px', background:'#fce4ec', color:'#c0392b', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', cursor:'pointer'}}>
-                    ✕ Effacer
+                    ✕ Effacer tout
                   </button>
                 )}
               </div>
-              <div style={{fontSize:'0.85rem', color:'#6b7c6e', fontWeight:600}}>
-                {ads.length > 0 ? `${filtered.length} annonce(s) trouvee(s)` : 'Annonces recentes'}
+              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{padding:'8px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', outline:'none', background:'#faf7f2', cursor:'pointer'}}>
+                  <option value="recent">📅 Plus recent</option>
+                  <option value="moins-cher">💰 Moins cher</option>
+                  <option value="plus-cher">💎 Plus cher</option>
+                </select>
+                <span style={{fontSize:'0.85rem', color:'#6b7c6e', fontWeight:600}}>
+                  {ads.length > 0 ? filtered.length + ' annonce(s)' : mockAds.length + ' annonces'}
+                </span>
               </div>
             </div>
 
@@ -197,39 +249,29 @@ export default function Home() {
               <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'12px', marginTop:'16px', paddingTop:'16px', borderTop:'1px solid #e8ede9'}}>
                 <div>
                   <label style={{display:'block', fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>Categorie</label>
-                  <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', background:'#faf7f2', cursor:'pointer'}}>
+                  <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', outline:'none', background:'#faf7f2', cursor:'pointer'}}>
                     <option value="">Toutes</option>
-                    <option value="immo-vente">Immobilier Vente</option>
-                    <option value="immo-location">Immobilier Location</option>
-                    <option value="immo-terrain">Terrain</option>
-                    <option value="voiture">Voitures</option>
-                    <option value="moto">Motos</option>
-                    <option value="electronique">Electronique</option>
-                    <option value="mode">Mode et Beaute</option>
-                    <option value="maison">Maison et Jardin</option>
-                    <option value="emploi">Emploi</option>
-                    <option value="animaux">Animaux</option>
-                    <option value="services">Services</option>
+                    {categories.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{display:'block', fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>Province</label>
-                  <select value={filterProvince} onChange={e => setFilterProvince(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', background:'#faf7f2', cursor:'pointer'}}>
-                    <option value="">Toutes</option>
-                    <option>Kigali</option>
-                    <option>Nord</option>
-                    <option>Sud</option>
-                    <option>Est</option>
-                    <option>Ouest</option>
+                  <label style={{display:'block', fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>Ville / Region</label>
+                  <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', outline:'none', background:'#faf7f2', cursor:'pointer'}}>
+                    <option value="">Toutes les villes</option>
+                    {villes.map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label style={{display:'block', fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>Prix min (RWF)</label>
-                  <input type="number" placeholder="0" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', background:'#faf7f2'}}/>
+                  <input type="number" placeholder="0" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', outline:'none', background:'#faf7f2'}}/>
                 </div>
                 <div>
                   <label style={{display:'block', fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>Prix max (RWF)</label>
-                  <input type="number" placeholder="999 999 999" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', background:'#faf7f2'}}/>
+                  <input type="number" placeholder="999 999 999" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'100%', padding:'9px 12px', border:'1.5px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', outline:'none', background:'#faf7f2'}}/>
                 </div>
               </div>
             )}
@@ -249,7 +291,7 @@ export default function Home() {
           ) : (
             <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
               {displayAds.map((ad: any) => (
-                <div key={ad.id} onClick={() => window.location.href='/annonce/' + ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow:'0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer', transition:'transform 0.15s', position:'relative'}}>
+                <div key={ad.id} onClick={() => window.location.href='/annonce/' + ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow:'0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer'}}>
                   <div style={{height:'160px', background: catBg[ad.category] || '#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem', overflow:'hidden', position:'relative'}}>
                     {ad.images && ad.images.length > 0 ? (
                       <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
@@ -263,12 +305,12 @@ export default function Home() {
                     <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#1a7a4a', marginBottom:'8px'}}>
                       {Number(ad.price).toLocaleString()} RWF
                     </div>
-                    {ad.province && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'8px'}}>📍 {ad.province} {ad.district && '· ' + ad.district}</div>}
-                    <button onClick={e => { e.stopPropagation(); window.location.href='/messages' }} style={{
+                    {ad.province && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'8px'}}>📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}</div>}
+                    <button onClick={e => { e.stopPropagation(); window.location.href='/annonce/' + ad.id }} style={{
                       width:'100%', padding:'8px', background:'#1a7a4a', color:'white',
                       border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif',
                       fontWeight:700, fontSize:'0.82rem', cursor:'pointer'
-                    }}>💬 Contacter le vendeur</button>
+                    }}>Voir l annonce</button>
                   </div>
                 </div>
               ))}
