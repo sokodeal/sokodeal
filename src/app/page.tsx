@@ -56,10 +56,13 @@ export default function Home() {
             <button style={{background:'#f5a623', border:'none', cursor:'pointer', padding:'10px 18px', fontSize:'1.1rem'}}>🔍</button>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-            <button onClick={() => window.location.href='/auth'} style={{padding:'8px 18px', border:'1.5px solid rgba(255,255,255,0.4)', borderRadius:'8px', color:'white', background:'transparent', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', cursor:'pointer'}}>
+            <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'8px 18px', border:'1.5px solid rgba(255,255,255,0.4)', borderRadius:'8px', color:'white', background:'transparent', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', cursor:'pointer'}}>
               Se connecter
             </button>
-            <button onClick={() => window.location.href='/publier'} style={{padding:'9px 20px', background:'#f5a623', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#111a14', cursor:'pointer'}}>
+            <button onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 18px', border:'1.5px solid #f5a623', borderRadius:'8px', color:'#111a14', background:'#f5a623', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.9rem', cursor:'pointer'}}>
+              Créer un compte
+            </button>
+            <button onClick={() => window.location.href='/publier'} style={{padding:'9px 20px', background:'white', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#0f5233', cursor:'pointer'}}>
               + Déposer une annonce
             </button>
           </div>
@@ -111,11 +114,18 @@ export default function Home() {
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700}}>
               {ads.length > 0 ? `${ads.length} annonce(s) récente(s)` : 'Annonces récentes'}
             </h2>
-            <button onClick={() => window.location.href='/publier'} style={{
-              padding:'8px 18px', background:'#1a7a4a', color:'white', border:'none',
-              borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700,
-              fontSize:'0.85rem', cursor:'pointer'
-            }}>+ Publier une annonce</button>
+            <div style={{display:'flex', gap:'10px'}}>
+              <button onClick={() => window.location.href='/messages'} style={{
+                padding:'8px 18px', background:'white', color:'#1a7a4a', border:'2px solid #1a7a4a',
+                borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700,
+                fontSize:'0.85rem', cursor:'pointer'
+              }}>💬 Messages</button>
+              <button onClick={() => window.location.href='/publier'} style={{
+                padding:'8px 18px', background:'#1a7a4a', color:'white', border:'none',
+                borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700,
+                fontSize:'0.85rem', cursor:'pointer'
+              }}>+ Publier</button>
+            </div>
           </div>
 
           {loading ? (
@@ -136,10 +146,15 @@ export default function Home() {
                   <div style={{padding:'13px 14px'}}>
                     <div style={{fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', marginBottom:'4px'}}>{ad.category}</div>
                     <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.97rem', marginBottom:'6px'}}>{ad.title}</div>
-                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#1a7a4a'}}>
+                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#1a7a4a', marginBottom:'8px'}}>
                       {Number(ad.price).toLocaleString()} RWF
                     </div>
-                    {ad.province && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginTop:'4px'}}>📍 {ad.province} {ad.district && `· ${ad.district}`}</div>}
+                    {ad.province && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'8px'}}>📍 {ad.province} {ad.district && `· ${ad.district}`}</div>}
+                    <button onClick={() => window.location.href='/messages'} style={{
+                      width:'100%', padding:'8px', background:'#1a7a4a', color:'white',
+                      border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif',
+                      fontWeight:700, fontSize:'0.82rem', cursor:'pointer'
+                    }}>💬 Contacter le vendeur</button>
                   </div>
                 </div>
               ))}
