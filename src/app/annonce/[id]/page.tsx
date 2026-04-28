@@ -19,7 +19,7 @@ export default function AnnonceDetail() {
     'mode':'👗','maison':'🛋️','emploi':'💼','animaux':'🐄','services':'🏗️'
   }
   const catLabel: any = {
-    'immo-vente':'Immobilier · Vente','immo-location':'Immobilier · Location',
+    'immo-vente':'Immobilier Vente','immo-location':'Immobilier Location',
     'immo-terrain':'Terrain','voiture':'Voitures','moto':'Motos',
     'electronique':'Electronique','mode':'Mode et Beaute','maison':'Maison et Jardin',
     'emploi':'Emploi','animaux':'Animaux','services':'Services'
@@ -71,13 +71,12 @@ export default function AnnonceDetail() {
   )
 
   const hasPhotos = ad.images && ad.images.length > 0
-  const waText = encodeURIComponent('Bonjour, je suis interesse par votre annonce sur SokoDeal : ' + ad.title)
   const waPhone = ad.phone ? ad.phone.replace(/\s+/g, '').replace('+', '') : ''
+  const waText = encodeURIComponent('Bonjour, je suis interesse par votre annonce sur SokoDeal : ' + ad.title)
 
   return (
     <div style={{minHeight:'100vh', background:'#f0f4f1'}}>
 
-      {/* HEADER */}
       <header style={{background:'#0f5233', position:'sticky', top:0, zIndex:100, boxShadow:'0 2px 16px rgba(0,0,0,0.18)'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'64px'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'10px', textDecoration:'none'}}>
@@ -104,7 +103,6 @@ export default function AnnonceDetail() {
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div style={{background:'white', borderBottom:'1px solid #e8ede9', padding:'12px 5%'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', fontSize:'0.82rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'6px'}}>
           <a href="/" style={{color:'#1a7a4a', textDecoration:'none', fontWeight:600}}>Accueil</a>
@@ -115,13 +113,9 @@ export default function AnnonceDetail() {
         </div>
       </div>
 
-      {/* CONTENU */}
       <div style={{maxWidth:'1100px', margin:'0 auto', padding:'28px 5%', display:'grid', gridTemplateColumns:'1fr 360px', gap:'24px', alignItems:'start'}}>
 
-        {/* COLONNE GAUCHE */}
         <div>
-
-          {/* GALERIE */}
           <div style={{background:'white', borderRadius:'16px', overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'20px'}}>
             <div style={{height:'380px', background:'#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'6rem', position:'relative', overflow:'hidden'}}>
               {hasPhotos ? (
@@ -144,7 +138,6 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          {/* TITRE + PRIX */}
           <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'20px'}}>
             <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.5rem', marginBottom:'12px', lineHeight:1.3}}>
               {ad.title}
@@ -166,19 +159,15 @@ export default function AnnonceDetail() {
             </div>
           </div>
 
-          {/* DESCRIPTION */}
           {ad.description && (
             <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'20px'}}>
               <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px'}}>📝 Description</h2>
-              <p style={{color:'#333', lineHeight:1.8, fontSize:'0.95rem', whiteSpace:'pre-wrap'}}>
-                {ad.description}
-              </p>
+              <p style={{color:'#333', lineHeight:1.8, fontSize:'0.95rem', whiteSpace:'pre-wrap'}}>{ad.description}</p>
             </div>
           )}
 
-          {/* DETAILS */}
           <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)'}}>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px'}}>📋 Details de l annonce</h2>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px'}}>📋 Details</h2>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
               {[
                 { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
@@ -197,10 +186,7 @@ export default function AnnonceDetail() {
           </div>
         </div>
 
-        {/* COLONNE DROITE */}
         <div style={{position:'sticky', top:'90px'}}>
-
-          {/* CONTACT */}
           <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 4px 24px rgba(10,60,25,0.12)', marginBottom:'16px'}}>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px'}}>💬 Contacter le vendeur</h2>
 
@@ -223,7 +209,8 @@ export default function AnnonceDetail() {
                   style={{width:'100%', padding:'12px 14px', border:'1.5px solid #e8ede9', borderRadius:'10px', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', outline:'none', resize:'vertical', background:'#faf7f2', marginBottom:'12px', boxSizing:'border-box'}}
                 />
                 <button onClick={handleContact} disabled={sending || !message.trim()} style={{
-                  width:'100%', padding:'13px', background: sending || !message.trim() ? '#ccc' : '#1a7a4a',
+                  width:'100%', padding:'13px',
+                  background: sending || !message.trim() ? '#ccc' : '#1a7a4a',
                   border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800,
                   fontSize:'1rem', color:'white', cursor: sending || !message.trim() ? 'not-allowed' : 'pointer',
                   marginBottom:'10px'
@@ -241,7 +228,7 @@ export default function AnnonceDetail() {
             {ad.phone && (
               <a href={'tel:' + ad.phone} style={{
                 display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                width:'100%', padding:'12px', background:'#e8f5ee', border:'none',
+                width:'100%', padding:'12px', background:'#e8f5ee',
                 borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700,
                 fontSize:'0.95rem', color:'#0f5233', textDecoration:'none',
                 marginTop:'10px', boxSizing:'border-box'
@@ -268,7 +255,6 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          {/* SECURITE */}
           <div style={{background:'#fff8e7', borderRadius:'14px', padding:'16px', border:'1.5px solid #f5e6c0'}}>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', marginBottom:'10px', color:'#7a5c00'}}>
               🛡️ Conseils de securite

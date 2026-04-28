@@ -21,7 +21,11 @@ export default function ProfilPage() {
         phone: user.user_metadata?.phone || '',
         location: user.user_metadata?.location || ''
       })
-      const { data } = await supabase.from('ads').select('*').eq('is_active', true).order('created_at', { ascending: false })
+      const { data } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
       if (data) setAds(data)
       setLoading(false)
     }
@@ -43,7 +47,7 @@ export default function ProfilPage() {
 
   const handleDeleteAd = async (id: string) => {
     if (!confirm('Supprimer cette annonce ?')) return
-    await supabase.from('ads').delete().eq('id', id)
+    await supabase.from('ads').delete().eq('id', id).eq('user_id', user.id)
     setAds(ads.filter(a => a.id !== id))
   }
 
@@ -74,7 +78,6 @@ export default function ProfilPage() {
   return (
     <div style={{minHeight:'100vh', background:'#f0f4f1'}}>
 
-      {/* HEADER */}
       <header style={{background:'#0f5233', boxShadow:'0 2px 16px rgba(0,0,0,0.18)', position:'sticky', top:0, zIndex:100}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'64px'}}>
           <a href="/" style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', color:'white', textDecoration:'none'}}>
@@ -91,7 +94,6 @@ export default function ProfilPage() {
         </div>
       </header>
 
-      {/* HERO PROFIL */}
       <div style={{background:'linear-gradient(135deg,#0f5233,#1a7a4a)', padding:'36px 5% 60px'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', alignItems:'center', gap:'24px'}}>
           <div style={{width:'80px', height:'80px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', fontWeight:800, color:'#111a14', fontFamily:'Syne,sans-serif', flexShrink:0, border:'4px solid rgba(255,255,255,0.3)'}}>
@@ -116,10 +118,9 @@ export default function ProfilPage() {
 
       <div style={{maxWidth:'1100px', margin:'-30px auto 0', padding:'0 5% 40px'}}>
 
-        {/* STATS CARDS */}
         <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'24px'}}>
           {[
-            { label:'Annonces actives', value: ads.length, icon:'📋', color:'#1a7a4a' },
+            { label:'Mes annonces', value: ads.length, icon:'📋', color:'#1a7a4a' },
             { label:'Vues totales', value:'—', icon:'👁', color:'#1a3a5c' },
             { label:'Messages reçus', value:'—', icon:'💬', color:'#7b3fa0' },
             { label:'Vendus', value:'0', icon:'✅', color:'#e67e22' },
@@ -132,7 +133,6 @@ export default function ProfilPage() {
           ))}
         </div>
 
-        {/* TABS */}
         <div style={{display:'flex', gap:'8px', marginBottom:'20px', overflowX:'auto', paddingBottom:'4px'}}>
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
@@ -165,7 +165,7 @@ export default function ProfilPage() {
             {ads.length === 0 ? (
               <div style={{background:'white', borderRadius:'16px', padding:'48px', textAlign:'center', boxShadow:'0 2px 12px rgba(0,0,0,0.07)'}}>
                 <div style={{fontSize:'3rem', marginBottom:'12px'}}>📭</div>
-                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px'}}>Aucune annonce pour l'instant</h3>
+                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px'}}>Aucune annonce pour l instant</h3>
                 <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.9rem'}}>Publiez votre première annonce gratuitement</p>
                 <button onClick={() => window.location.href='/publier'} style={{padding:'12px 28px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   + Publier une annonce
@@ -179,7 +179,7 @@ export default function ProfilPage() {
                       {ad.images && ad.images.length > 0 ? (
                         <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                       ) : (
-                        catEmoji[ad.category] || '📦'
+                        <span>{catEmoji[ad.category] || '📦'}</span>
                       )}
                       <span style={{position:'absolute', top:'8px', left:'8px', background:'#1a7a4a', color:'white', fontSize:'0.7rem', fontWeight:700, padding:'3px 8px', borderRadius:'6px'}}>
                         ✅ Active
@@ -211,11 +211,10 @@ export default function ProfilPage() {
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px'}}>
               <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem'}}>Informations personnelles</h2>
               <button onClick={() => setEditMode(!editMode)} style={{padding:'8px 18px', background: editMode ? '#fce4ec' : '#1a7a4a', color: editMode ? '#c0392b' : 'white', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor:'pointer'}}>
-                {editMode ? '✕ Annuler' : '✏️ Modifier'}
+                {editMode ? 'Annuler' : '✏️ Modifier'}
               </button>
             </div>
             {msg && <p style={{background: msg.includes('✅') ? '#e8f5ee' : '#fce4ec', color: msg.includes('✅') ? '#1a7a4a' : 'red', padding:'10px 14px', borderRadius:'8px', fontSize:'0.85rem', marginBottom:'16px'}}>{msg}</p>}
-
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
               {[
                 { label:'Nom complet', key:'full_name', placeholder:'Votre nom', icon:'👤' },
@@ -241,17 +240,15 @@ export default function ProfilPage() {
               <div style={{gridColumn:'span 2'}}>
                 <label style={{display:'block', fontSize:'0.82rem', fontWeight:600, color:'#6b7c6e', marginBottom:'6px'}}>📧 Email</label>
                 <div style={{padding:'11px 14px', background:'#f0f0f0', borderRadius:'9px', fontSize:'0.92rem', color:'#6b7c6e'}}>
-                  {user?.email} <span style={{fontSize:'0.75rem', color:'#1a7a4a', fontWeight:600}}>· Vérifié ✅</span>
+                  {user?.email} <span style={{fontSize:'0.75rem', color:'#1a7a4a', fontWeight:600}}>Verifie ✅</span>
                 </div>
               </div>
             </div>
-
             {editMode && (
               <button onClick={handleSaveProfile} style={{marginTop:'20px', width:'100%', padding:'13px', background:'#1a7a4a', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'white', cursor:'pointer'}}>
-                💾 Sauvegarder les modifications
+                💾 Sauvegarder
               </button>
             )}
-
             <div style={{marginTop:'28px', paddingTop:'24px', borderTop:'1px solid #e8ede9'}}>
               <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, marginBottom:'16px', color:'#c0392b'}}>⚠️ Zone dangereuse</h3>
               <button onClick={handleLogout} style={{padding:'10px 24px', background:'#fce4ec', border:'1.5px solid #f1afc0', borderRadius:'9px', color:'#c0392b', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor:'pointer'}}>
@@ -288,7 +285,7 @@ export default function ProfilPage() {
                     ))}
                   </div>
                   <button style={{width:'100%', padding:'11px', background: plan.current ? '#f0f4f1' : plan.color, color: plan.current ? '#6b7c6e' : 'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', cursor: plan.current ? 'default' : 'pointer'}}>
-                    {plan.current ? '✓ Plan actuel' : 'Choisir ce plan'}
+                    {plan.current ? 'Plan actuel' : 'Choisir ce plan'}
                   </button>
                 </div>
               ))}
@@ -300,13 +297,12 @@ export default function ProfilPage() {
         {activeTab === 'boosts' && (
           <div>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px'}}>🚀 Booster une annonce</h2>
-            <p style={{color:'#6b7c6e', fontSize:'0.88rem', marginBottom:'20px'}}>Un boost met votre annonce en tête de liste et lui donne 10× plus de visibilité.</p>
-
+            <p style={{color:'#6b7c6e', fontSize:'0.88rem', marginBottom:'20px'}}>Un boost met votre annonce en tête de liste et lui donne 10x plus de visibilité.</p>
             <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'28px'}}>
               {[
-                { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#e67e22', features:['Top des résultats 3 jours','Badge "Boosté"','2× plus de vues'] },
-                { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top des résultats 7 jours','Badge "Boosté"','5× plus de vues'], popular:true },
-                { name:'Boost 30 jours', price:'12 000', icon:'💎', color:'#1a3a5c', features:['Top des résultats 30 jours','Badge "Premium"','10× plus de vues'] },
+                { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#e67e22', features:['Top des résultats 3 jours','Badge Boosté','2x plus de vues'] },
+                { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top des résultats 7 jours','Badge Boosté','5x plus de vues'], popular:true },
+                { name:'Boost 30 jours', price:'12 000', icon:'💎', color:'#1a3a5c', features:['Top des résultats 30 jours','Badge Premium','10x plus de vues'] },
               ].map((boost, i) => (
                 <div key={i} style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow: boost.popular ? '0 8px 32px rgba(26,122,74,0.2)' : '0 2px 12px rgba(0,0,0,0.07)', border: boost.popular ? '2px solid #1a7a4a' : '2px solid transparent', position:'relative', textAlign:'center'}}>
                   {boost.popular && (
@@ -330,11 +326,10 @@ export default function ProfilPage() {
                 </div>
               ))}
             </div>
-
             <div style={{background:'white', borderRadius:'16px', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)'}}>
-              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'16px'}}>📋 Choisir l'annonce à booster</h3>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'16px'}}>📋 Choisir l annonce a booster</h3>
               {ads.length === 0 ? (
-                <p style={{color:'#6b7c6e', fontSize:'0.9rem'}}>Vous n'avez pas encore d'annonce à booster.</p>
+                <p style={{color:'#6b7c6e', fontSize:'0.9rem'}}>Vous n avez pas encore d annonce a booster.</p>
               ) : (
                 <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
                   {ads.map((ad: any) => (
@@ -362,7 +357,7 @@ export default function ProfilPage() {
           <div style={{background:'white', borderRadius:'16px', padding:'28px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', textAlign:'center'}}>
             <div style={{fontSize:'3rem', marginBottom:'12px'}}>📊</div>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px'}}>Statistiques avancées</h3>
-            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.9rem'}}>Disponible avec l'abonnement Pro</p>
+            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.9rem'}}>Disponible avec l abonnement Pro</p>
             <button onClick={() => setActiveTab('abonnement')} style={{padding:'12px 28px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
               ⭐ Passer au Pro
             </button>
@@ -373,7 +368,7 @@ export default function ProfilPage() {
         {activeTab === 'vendus' && (
           <div style={{background:'white', borderRadius:'16px', padding:'48px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', textAlign:'center'}}>
             <div style={{fontSize:'3rem', marginBottom:'12px'}}>✅</div>
-            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px'}}>Aucune vente pour l'instant</h3>
+            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px'}}>Aucune vente pour l instant</h3>
             <p style={{color:'#6b7c6e', fontSize:'0.9rem'}}>Vos articles vendus apparaîtront ici</p>
           </div>
         )}

@@ -27,7 +27,9 @@ export default function PublierPage() {
     setLoading(true)
     setMsg('')
 
-    // Upload photos
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { window.location.href = '/auth?mode=login'; return }
+
     const imageUrls: string[] = []
     for (const photo of photos) {
       const fileName = `${Date.now()}-${photo.name}`
@@ -50,6 +52,7 @@ export default function PublierPage() {
       phone: form.phone,
       images: imageUrls,
       is_active: true,
+      user_id: user.id,
     }])
 
     if (error) { setMsg('❌ ' + error.message); setLoading(false); return }
@@ -103,8 +106,8 @@ export default function PublierPage() {
           <option value="voiture">🚗 Voitures</option>
           <option value="moto">🛵 Motos</option>
           <option value="electronique">📱 Électronique</option>
-          <option value="mode">👗 Mode & Beauté</option>
-          <option value="maison">🛋️ Maison & Jardin</option>
+          <option value="mode">👗 Mode et Beauté</option>
+          <option value="maison">🛋️ Maison et Jardin</option>
           <option value="emploi">💼 Emploi</option>
           <option value="animaux">🐄 Animaux</option>
           <option value="services">🏗️ Services</option>
@@ -137,7 +140,6 @@ export default function PublierPage() {
         <input type="tel" placeholder="Téléphone * (+250...)" value={form.phone}
           onChange={e => setForm({...form, phone: e.target.value})} style={inp}/>
 
-        {/* Upload photos */}
         <div style={{marginBottom:'16px'}}>
           <label style={{display:'block', fontSize:'0.85rem', fontWeight:600, marginBottom:'8px', color:'#111a14'}}>
             📸 Photos (maximum 5)
@@ -158,7 +160,7 @@ export default function PublierPage() {
                     />
                     <button onClick={() => setPhotos(photos.filter((_,j) => j !== i))}
                       style={{position:'absolute', top:'-6px', right:'-6px', width:'20px', height:'20px', background:'red', color:'white', border:'none', borderRadius:'50%', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                      ×
+                      x
                     </button>
                   </div>
                 ))}
@@ -177,7 +179,7 @@ export default function PublierPage() {
         }}>{loading ? '⏳ Publication en cours...' : '🚀 Publier mon annonce'}</button>
 
         <a href="/" style={{display:'block', textAlign:'center', marginTop:'14px', color:'#6b7c6e', fontSize:'0.85rem'}}>
-          ← Retour à l'accueil
+          ← Retour à l accueil
         </a>
       </div>
     </div>
