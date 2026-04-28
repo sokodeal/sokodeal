@@ -6,6 +6,7 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
   const [ads, setAds] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -19,6 +20,20 @@ export default function Home() {
       setLoading(false)
     }
     fetchAds()
+
+    // Vérifie si l'utilisateur est connecté
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+
+    // Écoute les changements de session (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const catEmoji: any = {
@@ -56,12 +71,41 @@ export default function Home() {
             <button style={{background:'#f5a623', border:'none', cursor:'pointer', padding:'10px 18px', fontSize:'1.1rem'}}>🔍</button>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-            <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'8px 18px', border:'1.5px solid rgba(255,255,255,0.4)', borderRadius:'8px', color:'white', background:'transparent', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', cursor:'pointer'}}>
-              Se connecter
-            </button>
-            <button onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 18px', border:'1.5px solid #f5a623', borderRadius:'8px', color:'#111a14', background:'#f5a623', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.9rem', cursor:'pointer'}}>
-              Créer un compte
-            </button>
+            {user ? (
+              // ✅ CONNECTÉ — affiche l'icône Mon Compte
+              <button
+                onClick={() => window.location.href='/profil'}
+                style={{
+                  display:'flex', alignItems:'center', gap:'8px',
+                  padding:'8px 18px',
+                  background:'rgba(255,255,255,0.12)',
+                  border:'1.5px solid rgba(255,255,255,0.35)',
+                  borderRadius:'8px', color:'white',
+                  fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem',
+                  cursor:'pointer', transition:'background 0.2s'
+                }}
+              >
+                <div style={{
+                  width:'28px', height:'28px', borderRadius:'50%',
+                  background:'#f5a623', display:'flex', alignItems:'center',
+                  justifyContent:'center', fontWeight:800, fontSize:'0.85rem',
+                  color:'#111a14', fontFamily:'Syne,sans-serif', flexShrink:0
+                }}>
+                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                </div>
+                Mon compte
+              </button>
+            ) : (
+              // ❌ NON CONNECTÉ — affiche login + signup
+              <>
+                <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'8px 18px', border:'1.5px solid rgba(255,255,255,0.4)', borderRadius:'8px', color:'white', background:'transparent', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', cursor:'pointer'}}>
+                  Se connecter
+                </button>
+                <button onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 18px', border:'1.5px solid #f5a623', borderRadius:'8px', color:'#111a14', background:'#f5a623', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.9rem', cursor:'pointer'}}>
+                  Créer un compte
+                </button>
+              </>
+            )}
             <button onClick={() => window.location.href='/publier'} style={{padding:'9px 20px', background:'white', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#0f5233', cursor:'pointer'}}>
               + Déposer une annonce
             </button>
@@ -136,9 +180,7 @@ export default function Home() {
                 <div key={ad.id} style={{background:'white', borderRadius:'14px', overflow:'hidden', boxShadow:'0 4px 24px rgba(10,60,25,0.10)', cursor:'pointer'}}>
                   <div style={{height:'160px', background: catBg[ad.category] || '#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem', overflow:'hidden', position:'relative'}}>
                     {ad.images && ad.images.length > 0 ? (
-                      <img src={ad.images[0]} alt={ad.title}
-                        style={{width:'100%', height:'100%', objectFit:'cover'}}
-                      />
+                      <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                     ) : (
                       catEmoji[ad.category] || '📦'
                     )}
