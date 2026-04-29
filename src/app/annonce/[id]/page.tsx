@@ -82,7 +82,6 @@ export default function AnnonceDetail() {
         }
       `}</style>
 
-      {/* HEADER */}
       <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'58px', maxWidth:'1100px', margin:'0 auto'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
@@ -109,7 +108,6 @@ export default function AnnonceDetail() {
         </div>
       </header>
 
-      {/* BREADCRUMB */}
       <div style={{background:'white', borderBottom:'1px solid #f0f4f1', padding:'10px 5%'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', fontSize:'0.78rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
           <a href="/" style={{color:'#1a7a4a', textDecoration:'none', fontWeight:600}}>Accueil</a>
@@ -120,13 +118,9 @@ export default function AnnonceDetail() {
         </div>
       </div>
 
-      {/* CONTENU */}
       <div className="detail-layout" style={{maxWidth:'1100px', margin:'0 auto', padding:'20px 5%', display:'grid', gridTemplateColumns:'1fr 340px', gap:'20px', alignItems:'start'}}>
 
-        {/* GAUCHE */}
         <div>
-
-          {/* GALERIE */}
           <div style={{background:'white', borderRadius:'14px', overflow:'hidden', border:'1px solid #e8ede9', marginBottom:'16px'}}>
             <div style={{height:'300px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'5rem', position:'relative', overflow:'hidden'}}>
               {hasPhotos ? (
@@ -149,7 +143,6 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          {/* TITRE PRIX */}
           <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'16px'}}>
             <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', marginBottom:'12px', lineHeight:1.3, color:'#111a14'}}>
               {ad.title}
@@ -171,7 +164,6 @@ export default function AnnonceDetail() {
             </div>
           </div>
 
-          {/* DESCRIPTION */}
           {ad.description && (
             <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'16px'}}>
               <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'12px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Description</h2>
@@ -179,7 +171,6 @@ export default function AnnonceDetail() {
             </div>
           )}
 
-          {/* DETAILS */}
           <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9'}}>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Details</h2>
             <div className="detail-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
@@ -200,10 +191,7 @@ export default function AnnonceDetail() {
           </div>
         </div>
 
-        {/* DROITE */}
         <div className="detail-right" style={{position:'sticky', top:'78px'}}>
-
-          {/* CONTACT */}
           <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'12px'}}>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'16px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Contacter le vendeur</h2>
 
@@ -266,7 +254,6 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          {/* SECURITE */}
           <div style={{background:'#fffbeb', borderRadius:'12px', padding:'14px', border:'1px solid #fde68a'}}>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'8px', color:'#78350f', textTransform:'uppercase', letterSpacing:'0.04em'}}>
               🛡️ Conseils de securite
