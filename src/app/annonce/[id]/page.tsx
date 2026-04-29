@@ -175,11 +175,11 @@ export default function AnnonceDetail() {
 
                   {showShareMenu && (
                     <div style={{position:'absolute', top:'36px', right:0, background:'white', borderRadius:'10px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', padding:'6px', minWidth:'180px', zIndex:200}} onClick={e => e.stopPropagation()}>
-                      {navigator.share && (
-                        <button onClick={handleNativeShare} style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px'}}>
-                          📤 Partager via...
-                        </button>
-                      )}
+                      {typeof navigator !== 'undefined' && 'share' in navigator && (
+  <button onClick={handleNativeShare} ...>
+    📤 Partager via...
+  </button>
+)}
                       <button onClick={handleCopyLink} style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px'}}>
                         📋 Copier le lien
                       </button>
