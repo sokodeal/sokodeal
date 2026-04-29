@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useFavorites } from '@/hooks/useFavorites'
+import FavoriteButton from '@/components/FavoriteButton'
 
 export default function ProfilPage() {
   const [user, setUser] = useState<any>(null)
@@ -14,6 +16,16 @@ export default function ProfilPage() {
   const [selectedAd, setSelectedAd] = useState<any>(null)
   const [boostMsg, setBoostMsg] = useState('')
   const [boostLoading, setBoostLoading] = useState(false)
+  const [favoriteAds, setFavoriteAds] = useState<any[]>([])
+  const [favLoading, setFavLoading] = useState(false)
+
+  const { favorites } = useFavorites()
+
+  const villes = [
+    'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
+    'Byumba','Rwamagana','Nyamata','Kibungo','Gitarama','Muhanga','Huye',
+    'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
+  ]
 
   useEffect(() => {
     const init = async () => {
@@ -31,6 +43,25 @@ export default function ProfilPage() {
     }
     init()
   }, [])
+
+  // Charger les annonces favorites quand on clique sur l'onglet
+  useEffect(() => {
+    if (activeTab !== 'favoris' || favorites.length === 0) {
+      if (activeTab === 'favoris') setFavoriteAds([])
+      return
+    }
+    const fetchFavAds = async () => {
+      setFavLoading(true)
+      const { data } = await supabase
+        .from('ads')
+        .select('*')
+        .in('id', favorites)
+        .eq('is_active', true)
+      if (data) setFavoriteAds(data)
+      setFavLoading(false)
+    }
+    fetchFavAds()
+  }, [activeTab, favorites])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -83,6 +114,7 @@ export default function ProfilPage() {
 
   const tabs = [
     { id:'annonces', label:'Mes annonces', count: ads.length },
+    { id:'favoris', label:'❤️ Favoris', count: favorites.length },
     { id:'profil', label:'Mon profil', count: null },
     { id:'abonnement', label:'Abonnement', count: null },
     { id:'boosts', label:'Boosts', count: null },
@@ -104,9 +136,11 @@ export default function ProfilPage() {
           .ads-grid-3 { grid-template-columns: 1fr 1fr !important; }
           .plans-grid { grid-template-columns: 1fr !important; }
           .boost-grid { grid-template-columns: 1fr !important; }
+          .fav-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 480px) {
           .ads-grid-3 { grid-template-columns: 1fr !important; }
+          .fav-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -195,6 +229,9 @@ export default function ProfilPage() {
             <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
               <span style={{background:'rgba(255,255,255,0.12)', color:'white', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>Membre SokoDeal</span>
               <span style={{background:'rgba(245,166,35,0.25)', color:'#f5a623', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>{ads.length} annonce(s)</span>
+              {favorites.length > 0 && (
+                <span style={{background:'rgba(239,68,68,0.2)', color:'#fca5a5', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>❤️ {favorites.length} favori(s)</span>
+              )}
             </div>
           </div>
         </div>
@@ -206,11 +243,12 @@ export default function ProfilPage() {
         <div className="profil-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginBottom:'20px'}}>
           {[
             { label:'Annonces', value: ads.length, icon:'📋', color:'#1a7a4a' },
-            { label:'Vues', value:'—', icon:'👁', color:'#0f5233' },
+            { label:'Favoris', value: favorites.length, icon:'❤️', color:'#ef4444' },
             { label:'Messages', value:'—', icon:'💬', color:'#6b7c6e' },
             { label:'Vendus', value:'0', icon:'✅', color:'#f59e0b' },
           ].map((s, i) => (
-            <div key={i} style={{background:'white', borderRadius:'12px', padding:'14px', border:'1px solid #e8ede9', textAlign:'center'}}>
+            <div key={i} onClick={() => s.label === 'Favoris' ? setActiveTab('favoris') : null}
+              style={{background:'white', borderRadius:'12px', padding:'14px', border:'1px solid #e8ede9', textAlign:'center', cursor: s.label === 'Favoris' ? 'pointer' : 'default'}}>
               <div style={{fontSize:'1.4rem', marginBottom:'4px'}}>{s.icon}</div>
               <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', color:s.color}}>{s.value}</div>
               <div style={{fontSize:'0.7rem', color:'#6b7c6e', marginTop:'2px'}}>{s.label}</div>
@@ -225,7 +263,7 @@ export default function ProfilPage() {
               padding:'8px 16px', border: activeTab === tab.id ? 'none' : '1px solid #e8ede9',
               borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans,sans-serif',
               fontWeight:600, fontSize:'0.82rem', whiteSpace:'nowrap',
-              background: activeTab === tab.id ? '#1a7a4a' : 'white',
+              background: activeTab === tab.id ? (tab.id === 'favoris' ? '#ef4444' : '#1a7a4a') : 'white',
               color: activeTab === tab.id ? 'white' : '#6b7c6e',
             }}>
               {tab.label}
@@ -281,6 +319,54 @@ export default function ProfilPage() {
                           🗑️ Supprimer
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: FAVORIS */}
+        {activeTab === 'favoris' && (
+          <div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+              <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>❤️ Mes favoris</h2>
+              <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>{favorites.length} annonce(s)</span>
+            </div>
+
+            {favLoading ? (
+              <div style={{textAlign:'center', padding:'60px', color:'#6b7c6e'}}>⏳ Chargement...</div>
+            ) : favoriteAds.length === 0 ? (
+              <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
+                <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🤍</div>
+                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun favori</h3>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Cliquez sur le cœur d une annonce pour la sauvegarder</p>
+                <button onClick={() => window.location.href='/'} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
+                  Parcourir les annonces
+                </button>
+              </div>
+            ) : (
+              <div className="fav-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
+                {favoriteAds.map((ad: any) => (
+                  <div key={ad.id} style={{background:'white', borderRadius:'12px', overflow:'hidden', border:'1px solid #e8ede9', cursor:'pointer'}}
+                    onClick={() => window.location.href='/annonce/' + ad.id}>
+                    <div style={{height:'140px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2.5rem', position:'relative', overflow:'hidden'}}>
+                      {ad.images && ad.images.length > 0 ? (
+                        <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                      ) : (
+                        <span style={{opacity:0.5}}>{catEmoji[ad.category] || '📦'}</span>
+                      )}
+                      {/* Bouton retirer favori */}
+                      <div style={{position:'absolute', top:'8px', right:'8px'}} onClick={e => e.stopPropagation()}>
+                        <FavoriteButton adId={ad.id} size="sm" />
+                      </div>
+                    </div>
+                    <div style={{padding:'10px'}}>
+                      <div style={{fontSize:'0.65rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'3px'}}>{ad.category}</div>
+                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
+                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#0f5233', fontSize:'0.95rem', marginBottom:'4px'}}>{Number(ad.price).toLocaleString()} RWF</div>
+                      {ad.province && <div style={{fontSize:'0.7rem', color:'#6b7c6e'}}>📍 {ad.province}</div>}
                     </div>
                   </div>
                 ))}
@@ -368,8 +454,8 @@ export default function ProfilPage() {
                       </div>
                     ))}
                   </div>
-                  <button style={{width:'100%', padding:'10px', background: plan.current ? '#f5f7f5' : plan.color, color: plan.current ? '#6b7c6e' : 'white', border: plan.current ? '1px solid #e8ede9' : 'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor: plan.current ? 'default' : 'pointer'}}>
-                    {plan.current ? 'Plan actuel' : 'Choisir'}
+                  <button style={{width:'100%', padding:'10px', background: (plan as any).current ? '#f5f7f5' : plan.color, color: (plan as any).current ? '#6b7c6e' : 'white', border: (plan as any).current ? '1px solid #e8ede9' : 'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor: (plan as any).current ? 'default' : 'pointer'}}>
+                    {(plan as any).current ? 'Plan actuel' : 'Choisir'}
                   </button>
                 </div>
               ))}
