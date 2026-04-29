@@ -20,6 +20,7 @@ export default function Home() {
   const [toast, setToast] = useState<any>(null)
   const [profileResults, setProfileResults] = useState<any[]>([])
   const [searchingProfiles, setSearchingProfiles] = useState(false)
+  const [searchSaved, setSearchSaved] = useState(false)
 
   const villes = [
     'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
@@ -105,8 +106,38 @@ export default function Home() {
     return () => { supabase.removeChannel(ch) }
   }, [user])
 
+  // Sauvegarder dans l'historique
+  const saveToHistory = async (q: string, cat: string, ville: string) => {
+    if (!user || (!q && !cat && !ville)) return
+    await supabase.from('search_history').insert([{
+      user_id: user.id,
+      query: q || null,
+      category: cat || null,
+      province: ville || null,
+    }])
+  }
+
+  // Sauvegarder une alerte
+  const handleSaveSearch = async () => {
+    if (!user) { window.location.href = '/auth?mode=login'; return }
+    if (!search && !filterCat && !filterVille && !filterPriceMin && !filterPriceMax) return
+    const { error } = await supabase.from('saved_searches').insert([{
+      user_id: user.id,
+      query: search || null,
+      category: filterCat || null,
+      province: filterVille || null,
+      price_min: filterPriceMin ? parseInt(filterPriceMin) : null,
+      price_max: filterPriceMax ? parseInt(filterPriceMax) : null,
+      alert_enabled: true,
+    }])
+    if (!error) {
+      setSearchSaved(true)
+      setToast({ text: 'Alerte créée !', icon: '🔔' })
+      setTimeout(() => { setSearchSaved(false); setToast(null) }, 3000)
+    }
+  }
+
   useEffect(() => {
-    // Recherche de profils si @ détecté
     if (search.startsWith('@')) {
       const q = search.slice(1).toLowerCase()
       if (q.length >= 1) {
@@ -135,6 +166,14 @@ export default function Home() {
     else if (sortBy === 'moins-cher') result.sort((a, b) => a.price - b.price)
     else if (sortBy === 'plus-cher') result.sort((a, b) => b.price - a.price)
     setFiltered(result)
+
+    // Sauvegarder dans l'historique après 1.5s sans taper
+    const timer = setTimeout(() => {
+      if (search.trim() || filterCat || filterVille) {
+        saveToHistory(search.trim(), filterCat, filterVille)
+      }
+    }, 1500)
+    return () => clearTimeout(timer)
   }, [search, filterCat, filterVille, filterPriceMin, filterPriceMax, sortBy, ads])
 
   const resetFilters = () => {
@@ -169,6 +208,7 @@ export default function Home() {
           .deposer-btn { padding: 7px 12px !important; font-size: 0.8rem !important; }
           .hero-section { padding: 36px 4% 32px !important; }
           .mon-compte-label { display: none !important; }
+          .save-search-btn { display: none !important; }
         }
         @media (max-width: 480px) {
           .ads-grid { grid-template-columns: 1fr !important; }
@@ -177,21 +217,17 @@ export default function Home() {
         }
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
         .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; }
-        .favorite-btn { display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:50%; background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); cursor:pointer; transition:transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease; box-shadow:0 1px 6px rgba(0,0,0,0.12); color:#9ca3af; flex-shrink:0; width:36px; height:36px; font-size:1.1rem; }
-        .favorite-btn:hover { transform:scale(1.12); color:#ef4444; }
-        .favorite-btn.active { color:#ef4444; background:#fff1f2; }
-        .favorite-btn.pending { opacity:0.6; pointer-events:none; }
-        .favorite-icon { width:55%; height:55%; transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         .profile-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
         .profile-card { transition: box-shadow 0.18s, transform 0.18s; }
       `}</style>
 
+      {/* TOAST */}
       {toast && (
         <div style={{position:'fixed', bottom:'20px', right:'20px', zIndex:9999, background:'#0f5233', color:'white', padding:'12px 18px', borderRadius:'12px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)', display:'flex', alignItems:'center', gap:'10px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', animation:'fadeUp 0.3s ease', maxWidth:'260px'}}>
-          <span style={{fontSize:'1.2rem'}}>💬</span>
+          <span style={{fontSize:'1.2rem'}}>{toast.icon}</span>
           <div>
-            <div style={{fontWeight:700, marginBottom:'4px'}}>Nouveau message !</div>
+            <div style={{fontWeight:700, marginBottom:'4px'}}>{toast.text}</div>
             <button onClick={() => window.location.href='/messages'} style={{background:'#f5a623', border:'none', borderRadius:'6px', padding:'3px 10px', fontSize:'0.75rem', fontWeight:700, color:'#111', cursor:'pointer'}}>
               Voir →
             </button>
@@ -200,6 +236,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* HEADER */}
       <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9'}}>
         <div className="header-inner" style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'62px', gap:'14px', maxWidth:'1300px', margin:'0 auto'}}>
 
@@ -242,32 +279,34 @@ export default function Home() {
                   Connexion
                 </button>
                 <button className="btn-signup" onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 16px', border:'none', borderRadius:'9px', color:'white', background:'#1a7a4a', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor:'pointer'}}>
-                  S inscrire
+                  S'inscrire
                 </button>
               </>
             )}
             <button className="deposer-btn" onClick={() => window.location.href='/publier'} style={{padding:'8px 18px', background:'#f5a623', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14', cursor:'pointer', whiteSpace:'nowrap'}}>
-              + Deposer
+              + Déposer
             </button>
           </div>
         </div>
 
+        {/* CATEGORIES */}
         <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto'}}>
           {[
             {cat:'', label:'Tout'},
             {cat:'immo-vente', label:'🏡 Immo'},
             {cat:'voiture', label:'🚗 Autos'},
+            {cat:'moto', label:'🛵 Motos'},
             {cat:'electronique', label:'📱 Tech'},
             {cat:'mode', label:'👗 Mode'},
             {cat:'agriculture', label:'🌾 Agri'},
             {cat:'materiaux', label:'🧱 BTP'},
-            {cat:'sante', label:'💊 Sante'},
+            {cat:'sante', label:'💊 Santé'},
             {cat:'sport', label:'⚽ Sport'},
-            {cat:'education', label:'📚 Educ'},
+            {cat:'education', label:'📚 Éduc'},
             {cat:'animaux', label:'🐄 Animaux'},
             {cat:'services', label:'🏗️ Services'},
           ].map((item, i) => (
-            <a key={i} href="#" onClick={() => { setActiveSection('main'); setFilterCat(item.cat) }} style={{
+            <a key={i} href="#" onClick={e => { e.preventDefault(); setActiveSection('main'); setFilterCat(item.cat) }} style={{
               display:'flex', alignItems:'center', padding:'9px 14px',
               color: filterCat === item.cat ? '#1a7a4a' : '#6b7c6e',
               textDecoration:'none', fontSize:'0.82rem',
@@ -277,7 +316,7 @@ export default function Home() {
               transition:'all 0.15s'
             }}>{item.label}</a>
           ))}
-          <a href="#" onClick={() => setActiveSection('jobs')} style={{
+          <a href="#" onClick={e => { e.preventDefault(); setActiveSection('jobs') }} style={{
             display:'flex', alignItems:'center', padding:'9px 14px',
             color: activeSection === 'jobs' ? '#1a7a4a' : '#6b7c6e',
             textDecoration:'none', fontSize:'0.82rem', fontWeight: activeSection === 'jobs' ? 700 : 400,
@@ -299,7 +338,6 @@ export default function Home() {
             <div style={{background:'white', borderRadius:'12px', padding:'40px', textAlign:'center', border:'1px solid #e8ede9'}}>
               <div style={{fontSize:'2rem', marginBottom:'8px'}}>😕</div>
               <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Aucun profil trouvé pour "{search}"</p>
-              <p style={{color:'#9ca3af', fontSize:'0.78rem', marginTop:'6px'}}>Vérifiez l orthographe ou essayez un autre username</p>
             </div>
           ) : (
             <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
@@ -307,7 +345,7 @@ export default function Home() {
                 <div key={profile.id} className="profile-card"
                   onClick={() => window.location.href='/u/' + profile.username}
                   style={{background:'white', borderRadius:'12px', padding:'16px 20px', border:'1px solid #e8ede9', display:'flex', alignItems:'center', gap:'14px', cursor:'pointer'}}>
-                  <div style={{width:'52px', height:'52px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', color:'#111a14', flexShrink:0}}>
+                  <div style={{width:'52px', height:'52px', borderRadius:'50%', background:'#1a7a4a', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', color:'white', flexShrink:0}}>
                     {(profile.full_name || profile.username || 'U')[0].toUpperCase()}
                   </div>
                   <div style={{flex:1}}>
@@ -315,7 +353,7 @@ export default function Home() {
                       {profile.full_name || '@' + profile.username}
                     </div>
                     <div style={{fontSize:'0.78rem', color:'#1a7a4a', fontWeight:600}}>@{profile.username}</div>
-                    {profile.is_verified && <span style={{fontSize:'0.68rem', color:'#6b7c6e', marginTop:'2px', display:'block'}}>✅ Vérifié</span>}
+                    {profile.bio && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginTop:'3px'}}>{profile.bio}</div>}
                   </div>
                   <span style={{fontSize:'0.78rem', color:'#6b7c6e', fontWeight:600, flexShrink:0}}>Voir le profil →</span>
                 </div>
@@ -325,17 +363,18 @@ export default function Home() {
         </div>
       )}
 
+      {/* HERO */}
       {!search.startsWith('@') && activeSection === 'main' && !search && !filterCat && (
         <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'52px 5% 44px'}}>
           <div style={{maxWidth:'1300px', margin:'0 auto'}}>
             <p style={{color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'12px'}}>
-              Marketplace N°1 d Afrique
+              Marketplace N°1 d'Afrique
             </p>
             <h1 className="hero-title" style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'2.4rem', color:'white', lineHeight:1.15, marginBottom:'14px'}}>
               Achetez et vendez<br/>partout en Afrique
             </h1>
             <p style={{color:'rgba(255,255,255,0.65)', fontSize:'0.95rem', marginBottom:'32px', maxWidth:'420px', lineHeight:1.6}}>
-              Immobilier, vehicules, electronique et bien plus.
+              Immobilier, véhicules, électronique et bien plus.
             </p>
             <div style={{display:'flex', gap:'28px'}}>
               {[['48K+','Annonces'],['120K+','Membres'],['10+','Pays']].map(([n,l]) => (
@@ -349,6 +388,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* ANNONCES */}
       {!search.startsWith('@') && activeSection === 'main' && (
         <div style={{padding:'24px 5%', maxWidth:'1300px', margin:'0 auto'}}>
 
@@ -364,9 +404,21 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
+                {hasFilters && (
+                  <button className="save-search-btn" onClick={handleSaveSearch} style={{
+                    padding:'7px 12px',
+                    background: searchSaved ? '#e8f5ee' : '#fffbeb',
+                    border:'1px solid ' + (searchSaved ? '#b7dfca' : '#fde68a'),
+                    borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600,
+                    fontSize:'0.78rem', color: searchSaved ? '#1a7a4a' : '#78350f',
+                    cursor:'pointer', whiteSpace:'nowrap'
+                  }}>
+                    {searchSaved ? '✅ Alerte créée !' : '🔔 Créer une alerte'}
+                  </button>
+                )}
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{padding:'7px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
-                  <option value="recent">Plus recent</option>
+                  <option value="recent">Plus récent</option>
                   <option value="moins-cher">Moins cher</option>
                   <option value="plus-cher">Plus cher</option>
                 </select>
@@ -379,7 +431,7 @@ export default function Home() {
             {showFilters && (
               <div className="filters-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
                 {[
-                  { label:'Categorie', el: <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}><option value="">Toutes</option>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select> },
+                  { label:'Catégorie', el: <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}><option value="">Toutes</option>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select> },
                   { label:'Ville', el: <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}><option value="">Toutes</option>{villes.map(v => <option key={v} value={v}>{v}</option>)}</select> },
                   { label:'Prix min (RWF)', el: <input type="number" placeholder="0" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white'}}/> },
                   { label:'Prix max (RWF)', el: <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white'}}/> },
@@ -398,8 +450,8 @@ export default function Home() {
           ) : displayAds.length === 0 ? (
             <div style={{background:'white', borderRadius:'14px', padding:'56px', textAlign:'center', border:'1px solid #e8ede9'}}>
               <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🔍</div>
-              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun resultat</h3>
-              <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.9rem'}}>Essayez d autres termes ou filtres</p>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun résultat</h3>
+              <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.9rem'}}>Essayez d'autres termes ou filtres</p>
               <button onClick={resetFilters} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                 Voir toutes les annonces
               </button>
@@ -436,7 +488,7 @@ export default function Home() {
                       border:'1px solid #d4e6da', borderRadius:'8px', fontFamily:'Syne,sans-serif',
                       fontWeight:700, fontSize:'0.8rem', cursor:'pointer'
                     }}>
-                      Voir l annonce →
+                      Voir l'annonce →
                     </button>
                   </div>
                 </div>
@@ -446,12 +498,13 @@ export default function Home() {
         </div>
       )}
 
+      {/* JOBS */}
       {activeSection === 'jobs' && (
         <div style={{padding:'32px 5%', maxWidth:'1300px', margin:'0 auto'}}>
-          <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', marginBottom:'20px', color:'#111a14'}}>💼 Offres d emploi</h2>
+          <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', marginBottom:'20px', color:'#111a14'}}>💼 Offres d'emploi</h2>
           {[
-            {co:'🏦', title:'Developpeur Full-Stack Senior', company:'Bank of Kigali', loc:'Kigali', salary:'1 200 000 – 1 800 000 RWF/mois', type:'CDI'},
-            {co:'🏥', title:'Infirmier diplome', company:'King Faisal Hospital', loc:'Kigali', salary:'700 000 – 950 000 RWF/mois', type:'CDI'},
+            {co:'🏦', title:'Développeur Full-Stack Senior', company:'Bank of Kigali', loc:'Kigali', salary:'1 200 000 – 1 800 000 RWF/mois', type:'CDI'},
+            {co:'🏥', title:'Infirmier diplômé', company:'King Faisal Hospital', loc:'Kigali', salary:'700 000 – 950 000 RWF/mois', type:'CDI'},
             {co:'🌍', title:'Responsable Programmes', company:'Save the Children Rwanda', loc:'Kigali', salary:'1 500 000 – 2 000 000 RWF/mois', type:'CDD'},
           ].map((job, i) => (
             <div key={i} style={{background:'white', borderRadius:'12px', padding:'18px 20px', border:'1px solid #e8ede9', marginBottom:'10px', display:'flex', alignItems:'center', gap:'14px', cursor:'pointer'}}>
@@ -470,6 +523,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* FOOTER */}
       <footer style={{background:'#0f5233', color:'rgba(255,255,255,0.6)', padding:'36px 5%', marginTop:'40px'}}>
         <div style={{maxWidth:'1300px', margin:'0 auto', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'16px', alignItems:'center'}}>
           <div>
@@ -477,7 +531,7 @@ export default function Home() {
               Soko<span style={{color:'#f5a623'}}>Deal</span>
             </div>
             <p style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.4)', maxWidth:'240px', lineHeight:1.6}}>
-              La premiere plateforme d annonces d Afrique.
+              La première plateforme d'annonces d'Afrique.
             </p>
           </div>
           <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
