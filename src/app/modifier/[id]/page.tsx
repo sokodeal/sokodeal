@@ -3,6 +3,18 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 
+const INDICATIFS = [
+  { code: '+250', flag: '🇷🇼', pays: 'Rwanda' },
+  { code: '+243', flag: '🇨🇩', pays: 'RD Congo' },
+  { code: '+256', flag: '🇺🇬', pays: 'Uganda' },
+  { code: '+255', flag: '🇹🇿', pays: 'Tanzania' },
+  { code: '+254', flag: '🇰🇪', pays: 'Kenya' },
+  { code: '+257', flag: '🇧🇮', pays: 'Burundi' },
+  { code: '+33', flag: '🇫🇷', pays: 'France' },
+  { code: '+32', flag: '🇧🇪', pays: 'Belgique' },
+  { code: '+1', flag: '🇺🇸', pays: 'USA/Canada' },
+]
+
 export default function ModifierAnnoncePage() {
   const { id } = useParams()
   const [user, setUser] = useState<any>(null)
@@ -18,7 +30,10 @@ export default function ModifierAnnoncePage() {
     category: '',
     province: '',
     phone: '',
+    phone_indicatif: '+250',
     whatsapp: '',
+    whatsapp_indicatif: '+250',
+    whatsapp_same: true,
     hide_phone: false,
   })
 
@@ -53,14 +68,28 @@ export default function ModifierAnnoncePage() {
       if (!ad) { window.location.href = '/profil'; return }
       if (ad.user_id !== user.id) { window.location.href = '/profil'; return }
 
+      // Extraire indicatif et numéro du téléphone stocké
+      const parsePhone = (full: string) => {
+        const ind = INDICATIFS.find(i => full?.startsWith(i.code))
+        if (ind) return { indicatif: ind.code, numero: full.replace(ind.code, '').trim() }
+        return { indicatif: '+250', numero: full || '' }
+      }
+
+      const parsedPhone = parsePhone(ad.phone || '')
+      const parsedWa = parsePhone(ad.whatsapp || '')
+      const waIsSame = ad.whatsapp === ad.phone || !ad.whatsapp
+
       setForm({
         title: ad.title || '',
         description: ad.description || '',
         price: ad.price || '',
         category: ad.category || '',
         province: ad.province || '',
-        phone: ad.phone || '',
-        whatsapp: ad.whatsapp || '',
+        phone: parsedPhone.numero,
+        phone_indicatif: parsedPhone.indicatif,
+        whatsapp: parsedWa.numero,
+        whatsapp_indicatif: parsedWa.indicatif,
+        whatsapp_same: waIsSame,
         hide_phone: ad.hide_phone || false,
       })
       setImages(ad.images || [])
@@ -97,6 +126,12 @@ export default function ModifierAnnoncePage() {
       return
     }
     setSaving(true)
+
+    const fullPhone = form.phone ? form.phone_indicatif + ' ' + form.phone : ''
+    const fullWhatsapp = form.whatsapp_same
+      ? fullPhone
+      : (form.whatsapp ? form.whatsapp_indicatif + ' ' + form.whatsapp : '')
+
     const { error } = await supabase
       .from('ads')
       .update({
@@ -105,8 +140,8 @@ export default function ModifierAnnoncePage() {
         price: parseInt(form.price),
         category: form.category,
         province: form.province,
-        phone: form.phone,
-        whatsapp: form.whatsapp,
+        phone: fullPhone,
+        whatsapp: fullWhatsapp,
         hide_phone: form.hide_phone,
         images: images,
       })
@@ -224,30 +259,49 @@ export default function ModifierAnnoncePage() {
         <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'14px'}}>
           <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>📞 Contact</h2>
           <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
-              <div>
-                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>📞 Téléphone</label>
-                <div style={{display:'flex', border:'1px solid #e8ede9', borderRadius:'8px', overflow:'hidden', background:'#fafaf9'}}>
-                  <span style={{padding:'10px 10px', background:'#f5f7f5', borderRight:'1px solid #e8ede9', fontSize:'0.82rem', color:'#6b7c6e', fontWeight:600, whiteSpace:'nowrap'}}>+250</span>
-                  <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="780 000 000"
-                    style={{flex:1, padding:'10px 12px', border:'none', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', color:'#111a14', background:'transparent'}} />
-                </div>
-              </div>
-              <div>
-                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>💬 WhatsApp</label>
-                <div style={{display:'flex', border:'1px solid #e8ede9', borderRadius:'8px', overflow:'hidden', background:'#fafaf9'}}>
-                  <span style={{padding:'10px 10px', background:'#f5f7f5', borderRight:'1px solid #e8ede9', fontSize:'0.82rem', color:'#6b7c6e', fontWeight:600, whiteSpace:'nowrap'}}>+250</span>
-                  <input value={form.whatsapp} onChange={e => setForm({...form, whatsapp: e.target.value})} placeholder="780 000 000"
-                    style={{flex:1, padding:'10px 12px', border:'none', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', color:'#111a14', background:'transparent'}} />
-                </div>
+
+            {/* TELEPHONE */}
+            <div>
+              <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>📞 Téléphone</label>
+              <div style={{display:'flex', gap:'8px'}}>
+                <select value={form.phone_indicatif} onChange={e => setForm({...form, phone_indicatif: e.target.value})}
+                  style={{padding:'10px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'#fafaf9', color:'#111a14', cursor:'pointer', flexShrink:0}}>
+                  {INDICATIFS.map(i => <option key={i.code} value={i.code}>{i.flag} {i.code}</option>)}
+                </select>
+                <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="780 000 000"
+                  disabled={form.hide_phone}
+                  style={{flex:1, padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', color:'#111a14', background: form.hide_phone ? '#f5f7f5' : '#fafaf9'}} />
               </div>
             </div>
 
-            <label style={{display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', padding:'12px', background:'#f5f7f5', borderRadius:'8px', border:'1px solid #e8ede9'}}>
-              <input type="checkbox" checked={form.hide_phone} onChange={e => setForm({...form, hide_phone: e.target.checked})}
-                style={{width:'16px', height:'16px', accentColor:'#1a7a4a', cursor:'pointer'}} />
+            {/* WHATSAPP SAME */}
+            <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer'}}>
+              <input type="checkbox" checked={form.whatsapp_same} onChange={e => setForm({...form, whatsapp_same: e.target.checked})}
+                style={{width:'15px', height:'15px', accentColor:'#1a7a4a', cursor:'pointer'}} />
+              <span style={{fontSize:'0.82rem', color:'#6b7c6e', fontFamily:'DM Sans,sans-serif'}}>💬 Mon WhatsApp est le même que mon téléphone</span>
+            </label>
+
+            {/* WHATSAPP DIFFERENT */}
+            {!form.whatsapp_same && (
               <div>
-                <div style={{fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.85rem', color:'#111a14'}}>🔒 Cacher mon numéro</div>
+                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>💬 WhatsApp</label>
+                <div style={{display:'flex', gap:'8px'}}>
+                  <select value={form.whatsapp_indicatif} onChange={e => setForm({...form, whatsapp_indicatif: e.target.value})}
+                    style={{padding:'10px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'#fafaf9', color:'#111a14', cursor:'pointer', flexShrink:0}}>
+                    {INDICATIFS.map(i => <option key={i.code} value={i.code}>{i.flag} {i.code}</option>)}
+                  </select>
+                  <input value={form.whatsapp} onChange={e => setForm({...form, whatsapp: e.target.value})} placeholder="780 000 000"
+                    style={{flex:1, padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', color:'#111a14', background:'#fafaf9'}} />
+                </div>
+              </div>
+            )}
+
+            {/* CACHER NUMERO */}
+            <label style={{display:'flex', alignItems:'flex-start', gap:'10px', cursor:'pointer', padding:'12px', background:'#f5f7f5', borderRadius:'8px', border:'1px solid #e8ede9'}}>
+              <input type="checkbox" checked={form.hide_phone} onChange={e => setForm({...form, hide_phone: e.target.checked})}
+                style={{width:'16px', height:'16px', accentColor:'#1a7a4a', cursor:'pointer', marginTop:'2px'}} />
+              <div>
+                <div style={{fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.85rem', color:'#111a14'}}>🔒 Cacher mon numéro de téléphone</div>
                 <div style={{fontSize:'0.72rem', color:'#6b7c6e', marginTop:'2px'}}>Les acheteurs pourront me contacter uniquement via la messagerie SokoDeal</div>
               </div>
             </label>
