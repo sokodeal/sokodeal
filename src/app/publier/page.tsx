@@ -46,6 +46,29 @@ export default function PublierPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/auth?mode=login'; return }
 
+    // Vérifier limite plan gratuit
+    const { data: userData } = await supabase
+      .from('users')
+      .select('plan')
+      .eq('id', user.id)
+      .single()
+
+    const plan = userData?.plan || 'gratuit'
+
+    if (plan === 'gratuit') {
+      const { count } = await supabase
+        .from('ads')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if ((count || 0) >= 5) {
+        setMsg('🔒 Limite atteinte — Le plan gratuit permet 5 annonces actives maximum. Passez au plan Pro pour publier sans limite.')
+        setLoading(false)
+        return
+      }
+    }
+
     const imageUrls: string[] = []
     for (const photo of photos) {
       const fileName = `${Date.now()}-${photo.name}`
