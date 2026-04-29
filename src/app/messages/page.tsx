@@ -55,12 +55,9 @@ export default function MessagesPage() {
 
     if (!data) return
 
-    // Clé unique : ad_id + l'autre utilisateur
-    // On prend toujours le plus petit ID en premier pour éviter les doublons
     const convMap = new Map()
     for (const msg of data) {
       const otherId = msg.sender_id === u.id ? msg.receiver_id : msg.sender_id
-      // Clé stricte : ad_id + otherId (séparés par __ pour éviter collisions)
       const key = `${msg.ad_id}__${otherId}`
 
       if (!convMap.has(key)) {
@@ -79,6 +76,19 @@ export default function MessagesPage() {
     }
 
     const convList = Array.from(convMap.values())
+
+    // Charger les infos des autres utilisateurs
+    const otherIds = [...new Set(convList.map(c => c.other_id).filter(Boolean))]
+    if (otherIds.length > 0) {
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, username, full_name')
+        .in('id', otherIds)
+      const usersMap = new Map((usersData || []).map((u: any) => [u.id, u]))
+      convList.forEach(c => { c.other_user = usersMap.get(c.other_id) || null })
+    }
+
+    // Charger les titres des annonces
     const adIds = [...new Set(convList.map(c => c.ad_id).filter(Boolean))]
     if (adIds.length > 0) {
       const { data: adsData } = await supabase
@@ -95,7 +105,6 @@ export default function MessagesPage() {
   const openConversation = async (conv: any) => {
     setActiveConv(conv)
 
-    // Requête stricte : seulement les messages entre ces 2 utilisateurs pour cette annonce
     const { data } = await supabase
       .from('messages')
       .select('*')
@@ -108,13 +117,12 @@ export default function MessagesPage() {
 
     setMessages(data || [])
 
-    // Marquer comme lu
     await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('receiver_id', user.id)
       .eq('ad_id', conv.ad_id)
-      .eq('sender_id', conv.other_id) // ← clé du fix : on cible uniquement cet expéditeur
+      .eq('sender_id', conv.other_id)
 
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
@@ -171,6 +179,12 @@ export default function MessagesPage() {
     return text.split(/(https:\/\/sokodeal\.app\/annonce\/[a-zA-Z0-9-]+)/)
   }
 
+  const getDisplayName = (conv: any) => {
+    if (conv.other_user?.username) return '@' + conv.other_user.username
+    if (conv.other_user?.full_name) return conv.other_user.full_name
+    return conv.other_email
+  }
+
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7f5' }}>
       <p style={{ fontFamily: 'Syne,sans-serif', color: '#1a7a4a', fontWeight: 700 }}>⏳ Chargement...</p>
@@ -189,6 +203,7 @@ export default function MessagesPage() {
         textarea:focus { border-color: #1a7a4a !important; outline: none; }
       `}</style>
 
+      {/* HEADER */}
       <header style={{ background: 'white', borderBottom: '1px solid #e8ede9', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5%', height: '58px', maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -213,6 +228,7 @@ export default function MessagesPage() {
 
         <div className="msg-layout" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px', flex: 1, minHeight: '600px' }}>
 
+          {/* LISTE CONVERSATIONS */}
           <div className="conv-panel" style={{ background: 'white', borderRadius: '14px', border: '1px solid #e8ede9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f4f1' }}>
               <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.88rem', color: '#111a14' }}>
@@ -229,19 +245,20 @@ export default function MessagesPage() {
                 <div key={i} className="conv-item" onClick={() => openConversation(conv)}
                   style={{ padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f4f1', background: activeConv?.ad_id === conv.ad_id && activeConv?.other_id === conv.other_id ? '#f0f4f1' : 'white', transition: 'background 0.15s' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#f5f7f5', border: '1px solid #e8ede9', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                      {conv.ad?.images?.[0] ? <img src={conv.ad.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📦'}
+                    {/* AVATAR */}
+                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#1a7a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, color: 'white', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
+                      {(conv.other_user?.username || conv.other_user?.full_name || conv.other_email || 'U')[0].toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                        <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: conv.unread > 0 ? 800 : 700, fontSize: '0.82rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                          {conv.ad?.title || 'Annonce supprimée'}
+                        <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: conv.unread > 0 ? 800 : 700, fontSize: '0.85rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                          {getDisplayName(conv)}
                         </span>
                         <span style={{ fontSize: '0.68rem', color: '#9ca3af', flexShrink: 0 }}>{formatTime(conv.last_date)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: conv.unread > 0 ? '#111a14' : '#6b7c6e', fontWeight: conv.unread > 0 ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
-                          {conv.last_message?.substring(0, 40)}{conv.last_message?.length > 40 ? '...' : ''}
+                        <span style={{ fontSize: '0.73rem', color: '#6b7c6e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                          📦 {conv.ad?.title || 'Annonce supprimée'}
                         </span>
                         {conv.unread > 0 && (
                           <span style={{ background: '#e63946', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, flexShrink: 0 }}>
@@ -256,6 +273,7 @@ export default function MessagesPage() {
             </div>
           </div>
 
+          {/* CHAT */}
           <div className="chat-panel" style={{ background: 'white', borderRadius: '14px', border: '1px solid #e8ede9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {!activeConv ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7c6e', flexDirection: 'column', gap: '12px' }}>
@@ -264,15 +282,18 @@ export default function MessagesPage() {
               </div>
             ) : (
               <>
+                {/* Header chat */}
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f4f1', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '9px', background: '#f5f7f5', border: '1px solid #e8ede9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
-                    {activeConv.ad?.images?.[0] ? <img src={activeConv.ad.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📦'}
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#1a7a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, color: 'white', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
+                    {(activeConv.other_user?.username || activeConv.other_user?.full_name || activeConv.other_email || 'U')[0].toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.9rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {activeConv.ad?.title || 'Annonce supprimée'}
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.92rem', color: '#111a14' }}>
+                      {getDisplayName(activeConv)}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>{activeConv.other_email}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#6b7c6e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      📦 {activeConv.ad?.title || 'Annonce supprimée'}
+                    </div>
                   </div>
                   {activeConv.ad_id && (
                     <a href={'/annonce/' + activeConv.ad_id} style={{ padding: '5px 10px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#1a7a4a', textDecoration: 'none', flexShrink: 0 }}>
@@ -281,6 +302,7 @@ export default function MessagesPage() {
                   )}
                 </div>
 
+                {/* Messages */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {messages.map((msg, i) => {
                     const isMe = msg.sender_id === user.id
@@ -288,7 +310,8 @@ export default function MessagesPage() {
                     return (
                       <div key={i} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
                         <div style={{
-                          maxWidth: '72%', padding: '10px 14px', borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                          maxWidth: '72%', padding: '10px 14px',
+                          borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                           background: isMe ? '#1a7a4a' : '#f5f7f5',
                           color: isMe ? 'white' : '#111a14',
                           fontSize: '0.88rem', lineHeight: 1.5,
@@ -313,6 +336,7 @@ export default function MessagesPage() {
                   <div ref={bottomRef} />
                 </div>
 
+                {/* Input */}
                 <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f4f1', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                   <textarea
                     value={newMessage}
