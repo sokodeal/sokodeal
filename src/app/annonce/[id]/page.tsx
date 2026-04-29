@@ -45,7 +45,7 @@ export default function AnnonceDetail() {
     setSending(true)
     await supabase.from('messages').insert([{
       ad_id: ad.id, sender_id: user.id, receiver_id: ad.user_id,
-      sender_email: user.email, receiver_email: '', content: message,
+      sender_email: user.email, receiver_email: '', content: message + '\n\n🔗 Annonce : https://sokodeal.app/annonce/' + ad.id,
     }])
     setSending(false)
     setMsgSent(true)
