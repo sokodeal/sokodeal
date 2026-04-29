@@ -41,7 +41,6 @@ export default function AnnonceDetail() {
     init()
   }, [id])
 
-  // Fermer le menu partage si on clique ailleurs
   useEffect(() => {
     if (!showShareMenu) return
     const close = () => setShowShareMenu(false)
@@ -63,22 +62,28 @@ export default function AnnonceDetail() {
     setMessage('')
   }
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://sokodeal.app/annonce/' + id
+  const getShareUrl = () => {
+    if (typeof window !== 'undefined') return window.location.href
+    return 'https://sokodeal.app/annonce/' + id
+  }
+
   const shareText = ad ? `${ad.title} — ${Number(ad.price).toLocaleString()} RWF sur SokoDeal` : ''
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(shareUrl)
+    await navigator.clipboard.writeText(getShareUrl())
     setShared(true)
     setShowShareMenu(false)
     setTimeout(() => setShared(false), 2500)
   }
 
   const handleNativeShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: ad?.title, text: shareText, url: shareUrl })
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: ad?.title, text: shareText, url: getShareUrl() })
       setShowShareMenu(false)
     }
   }
+
+  const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
 
   if (loading) return (
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
@@ -98,7 +103,7 @@ export default function AnnonceDetail() {
 
   const hasPhotos = ad.images && ad.images.length > 0
   const waPhone = (ad.whatsapp || ad.phone || '').replace(/\s+/g, '').replace('+', '')
-  const waText = encodeURIComponent('Bonjour, je suis intéressé par votre annonce sur SokoDeal : ' + ad.title + ' — ' + shareUrl)
+  const waText = encodeURIComponent('Bonjour, je suis intéressé par votre annonce sur SokoDeal : ' + ad.title + ' — ' + getShareUrl())
 
   return (
     <div style={{minHeight:'100vh', background:'#f5f7f5'}}>
@@ -165,37 +170,55 @@ export default function AnnonceDetail() {
                 {catEmoji[ad.category]} {catLabel[ad.category] || ad.category}
               </div>
 
-              {/* BOUTON PARTAGER sur la photo */}
+              {/* BOUTON PARTAGER */}
               <div style={{position:'absolute', top:'12px', right:'12px'}} onClick={e => e.stopPropagation()}>
                 <div style={{position:'relative'}}>
-                  <button onClick={() => setShowShareMenu(!showShareMenu)}
+                  <button
+                    onClick={() => setShowShareMenu(!showShareMenu)}
                     style={{background:'white', border:'1px solid #e8ede9', borderRadius:'8px', padding:'6px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', color:'#111a14', display:'flex', alignItems:'center', gap:'5px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}>
                     {shared ? '✅ Copié !' : '🔗 Partager'}
                   </button>
 
                   {showShareMenu && (
-                    <div style={{position:'absolute', top:'36px', right:0, background:'white', borderRadius:'10px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', padding:'6px', minWidth:'180px', zIndex:200}} onClick={e => e.stopPropagation()}>
-                      {typeof navigator !== 'undefined' && 'share' in navigator && (
-  <button onClick={handleNativeShare} ...>
-    📤 Partager via...
-  </button>
-)}
-                      <button onClick={handleCopyLink} style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px'}}>
+                    <div
+                      style={{position:'absolute', top:'36px', right:0, background:'white', borderRadius:'10px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', padding:'6px', minWidth:'180px', zIndex:200}}
+                      onClick={e => e.stopPropagation()}>
+
+                      {canNativeShare && (
+                        <button
+                          onClick={handleNativeShare}
+                          style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px'}}>
+                          📤 Partager via...
+                        </button>
+                      )}
+
+                      <button
+                        onClick={handleCopyLink}
+                        style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px'}}>
                         📋 Copier le lien
                       </button>
-                      <a href={`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`} target="_blank" rel="noopener noreferrer"
-                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}
-                        onClick={() => setShowShareMenu(false)}>
+
+                      
+                        href={`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + getShareUrl())}`}
+                        target="_blank" rel="noopener noreferrer"
+                        onClick={() => setShowShareMenu(false)}
+                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
                         💬 WhatsApp
                       </a>
-                      <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer"
-                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}
-                        onClick={() => setShowShareMenu(false)}>
+
+                      
+                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`}
+                        target="_blank" rel="noopener noreferrer"
+                        onClick={() => setShowShareMenu(false)}
+                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
                         📘 Facebook
                       </a>
-                      <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer"
-                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}
-                        onClick={() => setShowShareMenu(false)}>
+
+                      
+                        href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(getShareUrl())}`}
+                        target="_blank" rel="noopener noreferrer"
+                        onClick={() => setShowShareMenu(false)}
+                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
                         🐦 Twitter / X
                       </a>
                     </div>
@@ -284,31 +307,7 @@ export default function AnnonceDetail() {
               </div>
             ) : (
               <>
-                {!ad.hide_phone && (
-                  <>
-                    <textarea value={message} onChange={e => setMessage(e.target.value)}
-                      placeholder="Bonjour, je suis intéressé par cette annonce. Est-elle encore disponible ?"
-                      rows={4}
-                      style={{width:'100%', padding:'11px 13px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#fafaf9', marginBottom:'10px', boxSizing:'border-box', color:'#111a14'}}
-                    />
-                    <button onClick={handleContact} disabled={sending || !message.trim()} style={{
-                      width:'100%', padding:'12px',
-                      background: sending || !message.trim() ? '#e8ede9' : '#1a7a4a',
-                      border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700,
-                      fontSize:'0.9rem', color: sending || !message.trim() ? '#6b7c6e' : 'white',
-                      cursor: sending || !message.trim() ? 'not-allowed' : 'pointer', marginBottom:'8px'
-                    }}>
-                      {sending ? '⏳ Envoi...' : '💬 Envoyer le message'}
-                    </button>
-                    {!user && (
-                      <p style={{fontSize:'0.75rem', color:'#6b7c6e', textAlign:'center', marginBottom:'8px'}}>
-                        <a href="/auth?mode=login" style={{color:'#1a7a4a', fontWeight:700}}>Connectez-vous</a> pour envoyer un message
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {ad.hide_phone && (
+                {ad.hide_phone ? (
                   <>
                     <div style={{background:'#f5f7f5', borderRadius:'9px', padding:'12px', border:'1px solid #e8ede9', marginBottom:'10px', textAlign:'center'}}>
                       <div style={{fontSize:'1.5rem', marginBottom:'6px'}}>🔒</div>
@@ -329,31 +328,51 @@ export default function AnnonceDetail() {
                       {sending ? '⏳ Envoi...' : '💬 Envoyer le message'}
                     </button>
                   </>
-                )}
-
-                {!ad.hide_phone && ad.phone && (
-                  <a href={'tel:' + ad.phone} style={{
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                    width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px',
-                    fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem',
-                    color:'#111a14', textDecoration:'none', marginTop:'8px', boxSizing:'border-box',
-                    border:'1px solid #e8ede9'
-                  }}>
-                    📞 {ad.phone}
-                  </a>
-                )}
-
-                {!ad.hide_phone && (ad.whatsapp || ad.phone) && (
-                  <a href={'https://wa.me/' + waPhone + '?text=' + waText}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                      width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px',
-                      fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem',
-                      color:'white', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'
+                ) : (
+                  <>
+                    <textarea value={message} onChange={e => setMessage(e.target.value)}
+                      placeholder="Bonjour, je suis intéressé par cette annonce. Est-elle encore disponible ?"
+                      rows={4}
+                      style={{width:'100%', padding:'11px 13px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#fafaf9', marginBottom:'10px', boxSizing:'border-box', color:'#111a14'}}
+                    />
+                    <button onClick={handleContact} disabled={sending || !message.trim()} style={{
+                      width:'100%', padding:'12px',
+                      background: sending || !message.trim() ? '#e8ede9' : '#1a7a4a',
+                      border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700,
+                      fontSize:'0.9rem', color: sending || !message.trim() ? '#6b7c6e' : 'white',
+                      cursor: sending || !message.trim() ? 'not-allowed' : 'pointer', marginBottom:'8px'
                     }}>
-                    💬 WhatsApp
-                  </a>
+                      {sending ? '⏳ Envoi...' : '💬 Envoyer le message'}
+                    </button>
+                    {!user && (
+                      <p style={{fontSize:'0.75rem', color:'#6b7c6e', textAlign:'center', marginBottom:'8px'}}>
+                        <a href="/auth?mode=login" style={{color:'#1a7a4a', fontWeight:700}}>Connectez-vous</a> pour envoyer un message
+                      </p>
+                    )}
+                    {ad.phone && (
+                      <a href={'tel:' + ad.phone} style={{
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                        width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px',
+                        fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem',
+                        color:'#111a14', textDecoration:'none', marginTop:'8px', boxSizing:'border-box',
+                        border:'1px solid #e8ede9'
+                      }}>
+                        📞 {ad.phone}
+                      </a>
+                    )}
+                    {(ad.whatsapp || ad.phone) && (
+                      <a href={'https://wa.me/' + waPhone + '?text=' + waText}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                          width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px',
+                          fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem',
+                          color:'white', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'
+                        }}>
+                        💬 WhatsApp
+                      </a>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -365,9 +384,9 @@ export default function AnnonceDetail() {
               🛡️ Conseils de sécurité
             </h3>
             {[
-              'Ne payez jamais à l\'avance sans voir l\'article',
+              "Ne payez jamais à l'avance sans voir l'article",
               'Rencontrez le vendeur dans un lieu public',
-              'Vérifiez l\'article avant tout paiement'
+              "Vérifiez l'article avant tout paiement"
             ].map((tip, i) => (
               <div key={i} style={{display:'flex', gap:'6px', marginBottom:'5px', fontSize:'0.75rem', color:'#78350f'}}>
                 <span style={{fontWeight:700, flexShrink:0}}>✓</span> {tip}
