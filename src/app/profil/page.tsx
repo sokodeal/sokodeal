@@ -4,6 +4,288 @@ import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import FavoriteButton from '@/components/FavoriteButton'
 
+function AlertesTab({ userId }: { userId: string }) {
+  const [searches, setSearches] = useState<any[]>([])
+  const [history, setHistory] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeSubTab, setActiveSubTab] = useState<'alertes' | 'historique'>('alertes')
+  const [showNewAlert, setShowNewAlert] = useState(false)
+  const [alertForm, setAlertForm] = useState({ query: '', category: '', province: '', price_min: '', price_max: '' })
+  const [savingAlert, setSavingAlert] = useState(false)
+
+  const categories = [
+    { value:'immo-vente', label:'🏡 Immobilier Vente' },
+    { value:'immo-location', label:'🏢 Immobilier Location' },
+    { value:'immo-terrain', label:'🌿 Terrain' },
+    { value:'voiture', label:'🚗 Voitures' },
+    { value:'moto', label:'🛵 Motos' },
+    { value:'electronique', label:'📱 Électronique' },
+    { value:'mode', label:'👗 Mode' },
+    { value:'maison', label:'🛋️ Maison' },
+    { value:'emploi', label:'💼 Emploi' },
+    { value:'animaux', label:'🐄 Animaux' },
+    { value:'services', label:'🏗️ Services' },
+    { value:'agriculture', label:'🌾 Agriculture' },
+    { value:'materiaux', label:'🧱 Matériaux' },
+    { value:'sante', label:'💊 Santé' },
+    { value:'sport', label:'⚽ Sport' },
+    { value:'education', label:'📚 Éducation' },
+  ]
+
+  const villes = ['Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Rubavu','Rusizi','Huye','Ngoma','Nyagatare']
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: alertsData }, { data: histData }] = await Promise.all([
+        supabase.from('saved_searches').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('search_history').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30)
+      ])
+      if (alertsData) setSearches(alertsData)
+      if (histData) {
+        const seen = new Set()
+        const unique = histData.filter((h: any) => {
+          const key = (h.query || '') + (h.category || '') + (h.province || '')
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        setHistory(unique)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [userId])
+
+  const handleCreateAlert = async () => {
+    if (!alertForm.query && !alertForm.category && !alertForm.province) return
+    setSavingAlert(true)
+    const { error } = await supabase.from('saved_searches').insert([{
+      user_id: userId,
+      query: alertForm.query || null,
+      category: alertForm.category || null,
+      province: alertForm.province || null,
+      price_min: alertForm.price_min ? parseInt(alertForm.price_min) : null,
+      price_max: alertForm.price_max ? parseInt(alertForm.price_max) : null,
+      alert_enabled: true,
+    }])
+    setSavingAlert(false)
+    if (!error) {
+      const { data } = await supabase.from('saved_searches').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      if (data) setSearches(data)
+      setShowNewAlert(false)
+      setAlertForm({ query: '', category: '', province: '', price_min: '', price_max: '' })
+    }
+  }
+
+  const handleAlertFromHistory = async (h: any) => {
+    await supabase.from('saved_searches').insert([{
+      user_id: userId,
+      query: h.query || null,
+      category: h.category || null,
+      province: h.province || null,
+      alert_enabled: true,
+    }])
+    const { data } = await supabase.from('saved_searches').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+    if (data) setSearches(data)
+    setActiveSubTab('alertes')
+  }
+
+  const toggleAlert = async (id: string, current: boolean) => {
+    await supabase.from('saved_searches').update({ alert_enabled: !current }).eq('id', id)
+    setSearches(prev => prev.map(s => s.id === id ? { ...s, alert_enabled: !current } : s))
+  }
+
+  const deleteAlert = async (id: string) => {
+    await supabase.from('saved_searches').delete().eq('id', id)
+    setSearches(prev => prev.filter(s => s.id !== id))
+  }
+
+  const deleteHistory = async (id: string) => {
+    await supabase.from('search_history').delete().eq('id', id)
+    setHistory(prev => prev.filter(h => h.id !== id))
+  }
+
+  const renderTags = (s: any) => (
+    <div style={{display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
+      {s.query && <span style={{background:'#e8f5ee', color:'#1a7a4a', padding:'2px 8px', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600}}>🔍 {s.query}</span>}
+      {s.category && <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'2px 8px', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600}}>{s.category}</span>}
+      {s.province && <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'2px 8px', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600}}>📍 {s.province}</span>}
+      {s.price_min && <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'2px 8px', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600}}>Min: {Number(s.price_min).toLocaleString()} RWF</span>}
+      {s.price_max && <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'2px 8px', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600}}>Max: {Number(s.price_max).toLocaleString()} RWF</span>}
+    </div>
+  )
+
+  if (loading) return <div style={{textAlign:'center', padding:'40px', color:'#6b7c6e'}}>⏳ Chargement...</div>
+
+  return (
+    <div>
+      <div style={{display:'flex', gap:'6px', marginBottom:'16px'}}>
+        {[
+          { id:'alertes', label:'🔔 Mes alertes', count: searches.length },
+          { id:'historique', label:'🕐 Historique', count: history.length },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveSubTab(tab.id as any)} style={{
+            padding:'8px 16px', border: activeSubTab === tab.id ? 'none' : '1px solid #e8ede9',
+            borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans,sans-serif',
+            fontWeight:600, fontSize:'0.82rem',
+            background: activeSubTab === tab.id ? '#1a7a4a' : 'white',
+            color: activeSubTab === tab.id ? 'white' : '#6b7c6e',
+          }}>
+            {tab.label} <span style={{marginLeft:'4px', background: activeSubTab === tab.id ? 'rgba(255,255,255,0.25)' : '#f5f7f5', padding:'1px 6px', borderRadius:'8px', fontSize:'0.72rem'}}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === 'alertes' && (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>🔔 Alertes</h2>
+            <button onClick={() => setShowNewAlert(!showNewAlert)} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>
+              + Nouvelle alerte
+            </button>
+          </div>
+
+          {showNewAlert && (
+            <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1.5px solid #1a7a4a', marginBottom:'16px'}}>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>Créer une alerte</h3>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'12px'}}>
+                <div style={{gridColumn:'span 2'}}>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Mot-clé</label>
+                  <input value={alertForm.query} onChange={e => setAlertForm({...alertForm, query: e.target.value})}
+                    placeholder="Ex: iPhone, Toyota, Appartement..."
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}} />
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Catégorie</label>
+                  <select value={alertForm.category} onChange={e => setAlertForm({...alertForm, category: e.target.value})}
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}}>
+                    <option value="">Toutes</option>
+                    {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Ville</label>
+                  <select value={alertForm.province} onChange={e => setAlertForm({...alertForm, province: e.target.value})}
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}}>
+                    <option value="">Toutes</option>
+                    {villes.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Prix min (RWF)</label>
+                  <input type="number" value={alertForm.price_min} onChange={e => setAlertForm({...alertForm, price_min: e.target.value})}
+                    placeholder="0"
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}} />
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Prix max (RWF)</label>
+                  <input type="number" value={alertForm.price_max} onChange={e => setAlertForm({...alertForm, price_max: e.target.value})}
+                    placeholder="Max"
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}} />
+                </div>
+              </div>
+              <div style={{display:'flex', gap:'8px'}}>
+                <button onClick={handleCreateAlert} disabled={savingAlert || (!alertForm.query && !alertForm.category && !alertForm.province)}
+                  style={{flex:1, padding:'11px', background: savingAlert ? '#ccc' : '#1a7a4a', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:'white', cursor:'pointer'}}>
+                  {savingAlert ? '⏳...' : '🔔 Créer l\'alerte'}
+                </button>
+                <button onClick={() => setShowNewAlert(false)} style={{padding:'11px 16px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', cursor:'pointer'}}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
+          {searches.length === 0 ? (
+            <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
+              <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🔔</div>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune alerte</h3>
+              <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Créez une alerte pour être notifié des nouvelles annonces</p>
+              <button onClick={() => setShowNewAlert(true)} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
+                + Créer une alerte
+              </button>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+              {searches.map((s: any) => (
+                <div key={s.id} style={{background:'white', borderRadius:'12px', padding:'16px 20px', border:'1px solid #e8ede9'}}>
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap'}}>
+                    <div style={{flex:1, minWidth:0}}>
+                      {renderTags(s)}
+                      <div style={{fontSize:'0.7rem', color:'#9ca3af', marginTop:'6px'}}>
+                        Créée le {new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long'})}
+                      </div>
+                    </div>
+                    <div style={{display:'flex', alignItems:'center', gap:'6px', flexShrink:0}}>
+                      <button onClick={() => toggleAlert(s.id, s.alert_enabled)} style={{
+                        padding:'5px 10px', borderRadius:'7px',
+                        border:'1px solid ' + (s.alert_enabled ? '#b7dfca' : '#e8ede9'),
+                        background: s.alert_enabled ? '#e8f5ee' : '#f5f7f5',
+                        color: s.alert_enabled ? '#1a7a4a' : '#6b7c6e',
+                        fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.75rem', cursor:'pointer'
+                      }}>
+                        {s.alert_enabled ? '🔔 Active' : '🔕 Off'}
+                      </button>
+                      <button onClick={() => deleteAlert(s.id)} style={{padding:'5px 10px', borderRadius:'7px', border:'1px solid #ffd6d6', background:'#fff1f0', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.75rem', cursor:'pointer'}}>
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === 'historique' && (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>🕐 Historique des recherches</h2>
+            {history.length > 0 && (
+              <button onClick={async () => {
+                await supabase.from('search_history').delete().eq('user_id', userId)
+                setHistory([])
+              }} style={{padding:'7px 14px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', color:'#c0392b', cursor:'pointer'}}>
+                🗑️ Tout effacer
+              </button>
+            )}
+          </div>
+
+          {history.length === 0 ? (
+            <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
+              <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🕐</div>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun historique</h3>
+              <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos recherches apparaîtront ici automatiquement</p>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              {history.map((h: any) => (
+                <div key={h.id} style={{background:'white', borderRadius:'12px', padding:'14px 16px', border:'1px solid #e8ede9', display:'flex', alignItems:'center', gap:'12px'}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    {renderTags(h)}
+                    <div style={{fontSize:'0.7rem', color:'#9ca3af', marginTop:'4px'}}>
+                      {new Date(h.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'})}
+                    </div>
+                  </div>
+                  <div style={{display:'flex', gap:'6px', flexShrink:0}}>
+                    <button onClick={() => handleAlertFromHistory(h)} style={{padding:'5px 10px', borderRadius:'7px', border:'1px solid #b7dfca', background:'#e8f5ee', color:'#1a7a4a', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.72rem', cursor:'pointer', whiteSpace:'nowrap'}}>
+                      🔔 Créer alerte
+                    </button>
+                    <button onClick={() => deleteHistory(h.id)} style={{padding:'5px 8px', borderRadius:'7px', border:'1px solid #ffd6d6', background:'#fff1f0', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.72rem', cursor:'pointer'}}>
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProfilPage() {
   const [user, setUser] = useState<any>(null)
   const [ads, setAds] = useState<any[]>([])
@@ -28,7 +310,6 @@ export default function ProfilPage() {
       if (!user) { window.location.href = '/auth?mode=login'; return }
       setUser(user)
 
-      // Charger les données depuis la table users
       const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -77,11 +358,9 @@ export default function ProfilPage() {
   }
 
   const handleSaveProfile = async () => {
-    // Valider username
     const uErr = validateUsername(profileForm.username)
     if (uErr) { setUsernameError(uErr); return }
 
-    // Vérifier unicité username
     if (profileForm.username) {
       const { data: existing } = await supabase
         .from('users')
@@ -92,10 +371,8 @@ export default function ProfilPage() {
       if (existing) { setUsernameError('Ce username est déjà pris'); return }
     }
 
-    // Mettre à jour auth metadata
     await supabase.auth.updateUser({ data: { full_name: profileForm.full_name, phone: profileForm.phone, location: profileForm.location } })
 
-    // Mettre à jour table users
     const { error } = await supabase
       .from('users')
       .upsert({
@@ -107,7 +384,7 @@ export default function ProfilPage() {
       })
 
     if (error) { setMsg('❌ ' + error.message); return }
-    setMsg('✅ Profil mis a jour !')
+    setMsg('✅ Profil mis à jour !')
     setEditMode(false)
     setUsernameError('')
     setTimeout(() => setMsg(''), 3000)
@@ -132,7 +409,7 @@ export default function ProfilPage() {
     }])
     setBoostLoading(false)
     if (error) { setBoostMsg('❌ ' + error.message); return }
-    setBoostMsg('✅ Annonce boostee !')
+    setBoostMsg('✅ Annonce boostée !')
     setTimeout(() => { setSelectedBoost(null); setSelectedAd(null); setBoostMsg('') }, 2000)
   }
 
@@ -144,8 +421,8 @@ export default function ProfilPage() {
   }
 
   const boostPlans = [
-    { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#f59e0b', features:['Top 3 jours','Badge Booste','2x vues'] },
-    { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top 7 jours','Badge Booste','5x vues'], popular:true },
+    { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#f59e0b', features:['Top 3 jours','Badge Boosté','2x vues'] },
+    { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top 7 jours','Badge Boosté','5x vues'], popular:true },
     { name:'Boost 30 jours', price:'12 000', icon:'💎', color:'#0f5233', features:['Top 30 jours','Badge Premium','10x vues'] },
   ]
 
@@ -155,6 +432,7 @@ export default function ProfilPage() {
     { id:'profil', label:'Mon profil', count: null },
     { id:'abonnement', label:'Abonnement', count: null },
     { id:'boosts', label:'Boosts', count: null },
+    { id:'alertes', label:'🔔 Alertes', count: null },
     { id:'stats', label:'Stats', count: null },
     { id:'vendus', label:'Vendus', count: 0 },
   ]
@@ -191,12 +469,12 @@ export default function ProfilPage() {
             {selectedAd ? (
               <>
                 <div style={{background:'#f5f7f5', borderRadius:'10px', padding:'14px', marginBottom:'16px', border:'1px solid #e8ede9'}}>
-                  <div style={{fontSize:'0.78rem', color:'#6b7c6e', marginBottom:'4px'}}>Annonce selectionnee</div>
+                  <div style={{fontSize:'0.78rem', color:'#6b7c6e', marginBottom:'4px'}}>Annonce sélectionnée</div>
                   <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#111a14'}}>{selectedAd.title}</div>
                 </div>
                 <div style={{background:'#f5f7f5', borderRadius:'10px', padding:'14px', marginBottom:'16px', border:'1px solid #e8ede9'}}>
                   <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
-                    <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>Duree</span>
+                    <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>Durée</span>
                     <span style={{fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{selectedBoost.name}</span>
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between'}}>
@@ -211,7 +489,7 @@ export default function ProfilPage() {
               </>
             ) : (
               <>
-                <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'12px'}}>Choisissez l annonce a booster :</p>
+                <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'12px'}}>Choisissez l'annonce à booster :</p>
                 <div style={{display:'flex', flexDirection:'column', gap:'8px', marginBottom:'14px', maxHeight:'220px', overflowY:'auto'}}>
                   {ads.length === 0 ? (
                     <p style={{color:'#6b7c6e', fontSize:'0.82rem'}}>Aucune annonce disponible.</p>
@@ -246,7 +524,7 @@ export default function ProfilPage() {
               + Publier
             </button>
             <button onClick={handleLogout} style={{padding:'7px 16px', background:'transparent', border:'1px solid #e8ede9', borderRadius:'8px', color:'#6b7c6e', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', cursor:'pointer'}}>
-              Deconnexion
+              Déconnexion
             </button>
           </div>
         </div>
@@ -334,7 +612,7 @@ export default function ProfilPage() {
               <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
                 <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📭</div>
                 <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune annonce</h3>
-                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Publiez votre premiere annonce gratuitement</p>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Publiez votre première annonce gratuitement</p>
                 <button onClick={() => window.location.href='/publier'} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   + Publier
                 </button>
@@ -356,14 +634,14 @@ export default function ProfilPage() {
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'0.9rem', marginBottom:'8px'}}>{Number(ad.price).toLocaleString()} RWF</div>
                       <div style={{display:'flex', gap:'5px'}}>
                         <button onClick={() => window.location.href='/annonce/' + ad.id} style={{flex:1, padding:'6px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', cursor:'pointer'}}>
-  👁️ Voir
-</button>
-<button onClick={() => window.location.href='/modifier/' + ad.id} style={{flex:1, padding:'6px', background:'#e8f5ee', border:'1px solid #b7dfca', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', cursor:'pointer'}}>
-  ✏️ Modifier
-</button>
-<button onClick={() => handleDeleteAd(ad.id)} style={{flex:1, padding:'6px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#c0392b', cursor:'pointer'}}>
-  🗑️ Supprimer
-</button>
+                          👁️ Voir
+                        </button>
+                        <button onClick={() => window.location.href='/modifier/' + ad.id} style={{flex:1, padding:'6px', background:'#e8f5ee', border:'1px solid #b7dfca', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', cursor:'pointer'}}>
+                          ✏️ Modifier
+                        </button>
+                        <button onClick={() => handleDeleteAd(ad.id)} style={{flex:1, padding:'6px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#c0392b', cursor:'pointer'}}>
+                          🗑️
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -386,7 +664,7 @@ export default function ProfilPage() {
               <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
                 <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🤍</div>
                 <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun favori</h3>
-                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Cliquez sur le cœur d une annonce pour la sauvegarder</p>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Cliquez sur le cœur d'une annonce pour la sauvegarder</p>
                 <button onClick={() => window.location.href='/'} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   Parcourir les annonces
                 </button>
@@ -406,10 +684,9 @@ export default function ProfilPage() {
                       </div>
                     </div>
                     <div style={{padding:'10px'}}>
-                      <div style={{fontSize:'0.65rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'3px'}}>{ad.category}</div>
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
-                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#0f5233', fontSize:'0.95rem', marginBottom:'4px'}}>{Number(ad.price).toLocaleString()} RWF</div>
-                      {ad.province && <div style={{fontSize:'0.7rem', color:'#6b7c6e'}}>📍 {ad.province}</div>}
+                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#0f5233', fontSize:'0.95rem'}}>{Number(ad.price).toLocaleString()} RWF</div>
+                      {ad.province && <div style={{fontSize:'0.7rem', color:'#6b7c6e', marginTop:'3px'}}>📍 {ad.province}</div>}
                     </div>
                   </div>
                 ))}
@@ -430,10 +707,9 @@ export default function ProfilPage() {
             {msg && <p style={{background: msg.includes('✅') ? '#e8f5ee' : '#fff1f0', color: msg.includes('✅') ? '#1a7a4a' : '#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'14px', border:'1px solid ' + (msg.includes('✅') ? '#b7dfca' : '#ffd6d6')}}>{msg}</p>}
 
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
-              {/* USERNAME */}
               <div style={{gridColumn:'span 2'}}>
                 <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>
-                  🔖 Username <span style={{color:'#1a7a4a', fontWeight:700, textTransform:'none', fontSize:'0.7rem'}}>(votre @profil public)</span>
+                  🔖 Username
                 </label>
                 {editMode ? (
                   <div>
@@ -445,21 +721,17 @@ export default function ProfilPage() {
                       />
                     </div>
                     {usernameError && <p style={{color:'#c0392b', fontSize:'0.72rem', marginTop:'4px'}}>{usernameError}</p>}
-                    <p style={{color:'#9ca3af', fontSize:'0.7rem', marginTop:'4px'}}>Lettres minuscules, chiffres et _ · 3-20 caractères · Votre lien : sokodeal.app/u/{profileForm.username || 'username'}</p>
                   </div>
                 ) : (
-                  <div style={{padding:'10px 12px', background:'#f5f7f5', borderRadius:'8px', fontSize:'0.88rem', color: profileForm.username ? '#111a14' : '#aaa', border:'1px solid #e8ede9', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                    <span>{profileForm.username ? '@' + profileForm.username : 'Pas encore de username'}</span>
-                    {profileForm.username && (
-                      <a href={'/u/' + profileForm.username} style={{fontSize:'0.72rem', color:'#1a7a4a', fontWeight:600, textDecoration:'none'}}>Voir →</a>
-                    )}
+                  <div style={{padding:'10px 12px', background:'#f5f7f5', borderRadius:'8px', fontSize:'0.88rem', color: profileForm.username ? '#111a14' : '#aaa', border:'1px solid #e8ede9'}}>
+                    {profileForm.username ? '@' + profileForm.username : 'Pas encore de username'}
                   </div>
                 )}
               </div>
 
               {[
                 { label:'Nom complet', key:'full_name', placeholder:'Votre nom', icon:'👤' },
-                { label:'Telephone', key:'phone', placeholder:'+250 780 000 000', icon:'📞' },
+                { label:'Téléphone', key:'phone', placeholder:'+250 780 000 000', icon:'📞' },
                 { label:'Localisation', key:'location', placeholder:'Kigali, Rwanda', icon:'📍' },
               ].map(field => (
                 <div key={field.key} style={{gridColumn: field.key === 'full_name' ? 'span 2' : 'span 1'}}>
@@ -483,7 +755,7 @@ export default function ProfilPage() {
                 <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>📧 Email</label>
                 <div style={{padding:'10px 12px', background:'#f5f7f5', borderRadius:'8px', fontSize:'0.88rem', color:'#6b7c6e', border:'1px solid #e8ede9', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                   <span>{user?.email}</span>
-                  <span style={{fontSize:'0.72rem', color:'#1a7a4a', fontWeight:600}}>Verifie ✅</span>
+                  <span style={{fontSize:'0.72rem', color:'#1a7a4a', fontWeight:600}}>Vérifié ✅</span>
                 </div>
               </div>
             </div>
@@ -495,7 +767,7 @@ export default function ProfilPage() {
             )}
             <div style={{marginTop:'24px', paddingTop:'20px', borderTop:'1px solid #e8ede9'}}>
               <button onClick={handleLogout} style={{padding:'9px 20px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'8px', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer'}}>
-                🚪 Se deconnecter
+                🚪 Se déconnecter
               </button>
             </div>
           </div>
@@ -507,9 +779,9 @@ export default function ProfilPage() {
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px', color:'#111a14'}}>Choisir un abonnement</h2>
             <div className="plans-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
               {[
-                { name:'Gratuit', price:'0', period:'Pour toujours', color:'#6b7c6e', features:['3 annonces max','Photos limitees','Support standard'], current:true },
-                { name:'Pro', price:'15 000', period:'par mois', color:'#1a7a4a', features:['Annonces illimitees','5 photos par annonce','Badge Pro','1 boost par mois','Support prioritaire'], popular:true },
-                { name:'Agence', price:'50 000', period:'par mois', color:'#0f5233', features:['Tout du Pro','Page agence dediee','5 boosts par mois','Dashboard avance','Support dedie'] },
+                { name:'Gratuit', price:'0', period:'Pour toujours', color:'#6b7c6e', features:['5 annonces max','Photos limitées','Support standard'], current:true },
+                { name:'Pro', price:'15 000', period:'par mois', color:'#1a7a4a', features:['Annonces illimitées','5 photos par annonce','Badge Pro','1 boost par mois','Support prioritaire'], popular:true },
+                { name:'Agence', price:'50 000', period:'par mois', color:'#0f5233', features:['Tout du Pro','Page agence dédiée','5 boosts par mois','Dashboard avancé','Support dédié'] },
               ].map((plan, i) => (
                 <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: plan.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative'}}>
                   {plan.popular && <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', background:'#1a7a4a', color:'white', padding:'3px 12px', borderRadius:'20px', fontSize:'0.68rem', fontWeight:700, whiteSpace:'nowrap'}}>Le plus populaire</div>}
@@ -530,7 +802,7 @@ export default function ProfilPage() {
         {activeTab === 'boosts' && (
           <div>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'6px', color:'#111a14'}}>Booster une annonce</h2>
-            <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'16px'}}>Un boost met votre annonce en tete de liste.</p>
+            <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'16px'}}>Un boost met votre annonce en tête de liste.</p>
             <div className="boost-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'20px'}}>
               {boostPlans.map((boost, i) => (
                 <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: boost.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative', textAlign:'center'}}>
@@ -546,12 +818,17 @@ export default function ProfilPage() {
           </div>
         )}
 
+        {/* TAB: ALERTES */}
+        {activeTab === 'alertes' && user && (
+          <AlertesTab userId={user.id} />
+        )}
+
         {/* TAB: STATS */}
         {activeTab === 'stats' && (
           <div style={{background:'white', borderRadius:'14px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
             <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📊</div>
-            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Statistiques avancees</h3>
-            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Disponible avec l abonnement Pro</p>
+            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Statistiques avancées</h3>
+            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Disponible avec l'abonnement Pro</p>
             <button onClick={() => setActiveTab('abonnement')} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>Passer au Pro</button>
           </div>
         )}
@@ -561,7 +838,7 @@ export default function ProfilPage() {
           <div style={{background:'white', borderRadius:'14px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
             <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>✅</div>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Aucune vente</h3>
-            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos articles vendus apparaitront ici</p>
+            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos articles vendus apparaîtront ici</p>
           </div>
         )}
 
