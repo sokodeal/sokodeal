@@ -19,6 +19,14 @@ export default function PublicProfile() {
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [editMsg, setEditMsg] = useState('')
 
+  // Avis
+  const [reviews, setReviews] = useState<any[]>([])
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewMsg, setReviewMsg] = useState('')
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false)
+
   const catEmoji: any = {
     'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿','voiture':'🚗',
     'moto':'🛵','electronique':'📱','mode':'👗','maison':'🛋️','emploi':'💼',
@@ -49,8 +57,22 @@ export default function PublicProfile() {
         .eq('user_id', userData.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-
       if (adsData) setAds(adsData)
+
+      // Charger les avis
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('*, reviewer:reviewer_id(username, full_name)')
+        .eq('seller_id', userData.id)
+        .order('created_at', { ascending: false })
+      if (reviewsData) setReviews(reviewsData)
+
+      // Vérifier si l'utilisateur a déjà laissé un avis
+      if (user) {
+        const already = reviewsData?.some((r: any) => r.reviewer_id === user.id)
+        setAlreadyReviewed(!!already)
+      }
+
       setLoading(false)
     }
     init()
@@ -85,6 +107,39 @@ export default function PublicProfile() {
     setTimeout(() => setEditMsg(''), 3000)
   }
 
+  const handleSubmitReview = async () => {
+    if (!currentUser) { window.location.href = '/auth?mode=login'; return }
+    if (!reviewForm.comment.trim()) { setReviewMsg('❌ Ajoutez un commentaire'); return }
+    setSubmittingReview(true)
+    const { error } = await supabase.from('reviews').insert([{
+      reviewer_id: currentUser.id,
+      seller_id: profile.id,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment.trim(),
+    }])
+    setSubmittingReview(false)
+    if (error) { setReviewMsg('❌ ' + error.message); return }
+
+    // Recharger les avis
+    const { data: reviewsData } = await supabase
+      .from('reviews')
+      .select('*, reviewer:reviewer_id(username, full_name)')
+      .eq('seller_id', profile.id)
+      .order('created_at', { ascending: false })
+    if (reviewsData) setReviews(reviewsData)
+
+    setAlreadyReviewed(true)
+    setShowReviewForm(false)
+    setReviewForm({ rating: 5, comment: '' })
+    setReviewMsg('')
+  }
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null
+
+  const stars = (n: number, size = '1rem') => '⭐'.repeat(n) + '☆'.repeat(5 - n)
+
   if (loading) return (
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
       <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>⏳ Chargement...</p>
@@ -115,6 +170,8 @@ export default function PublicProfile() {
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
         .banner-overlay { opacity: 0; transition: opacity 0.2s; }
         .banner-wrap:hover .banner-overlay { opacity: 1; }
+        .star-btn:hover { transform: scale(1.2); }
+        .star-btn { transition: transform 0.1s; cursor: pointer; }
       `}</style>
 
       {/* HEADER */}
@@ -148,8 +205,6 @@ export default function PublicProfile() {
         ) : (
           <div style={{width:'100%', height:'100%', background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)'}} />
         )}
-
-        {/* Overlay modifier bannière si owner */}
         {isOwner && (
           <label className="banner-overlay" style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}>
             <div style={{background:'rgba(255,255,255,0.15)', border:'1.5px solid rgba(255,255,255,0.5)', borderRadius:'10px', padding:'10px 20px', color:'white', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', backdropFilter:'blur(4px)'}}>
@@ -160,28 +215,34 @@ export default function PublicProfile() {
         )}
       </div>
 
-      {/* PROFIL CARD */}
       <div style={{maxWidth:'1100px', margin:'-40px auto 0', padding:'0 5% 40px', position:'relative', zIndex:10}}>
 
+        {/* PROFIL CARD */}
         <div style={{background:'white', borderRadius:'16px', padding:'24px', border:'1px solid #e8ede9', marginBottom:'20px', boxShadow:'0 4px 20px rgba(0,0,0,0.07)'}}>
           <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'16px', flexWrap:'wrap'}}>
-
-            {/* AVATAR + INFOS */}
             <div style={{display:'flex', alignItems:'center', gap:'16px'}}>
               <div style={{width:'72px', height:'72px', borderRadius:'50%', background:'#1a7a4a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.8rem', fontWeight:800, color:'white', fontFamily:'Syne,sans-serif', flexShrink:0, border:'3px solid white', boxShadow:'0 2px 12px rgba(0,0,0,0.12)'}}>
                 {(profile.full_name || profile.username || 'U')[0].toUpperCase()}
               </div>
               <div>
-                <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px'}}>
+                <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px', flexWrap:'wrap'}}>
                   <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'#111a14', margin:0}}>
                     {profile.full_name || '@' + profile.username}
                   </h1>
                   {profile.is_verified && <span style={{background:'#e8f5ee', color:'#1a7a4a', padding:'2px 8px', borderRadius:'20px', fontSize:'0.7rem', fontWeight:700}}>✅ Vérifié</span>}
                 </div>
-                <p style={{color:'#f5a623', fontSize:'0.85rem', fontWeight:700, margin:'0 0 6px'}}>@{profile.username}</p>
-                {profile.bio && (
-                  <p style={{color:'#6b7c6e', fontSize:'0.85rem', margin:'0 0 6px', maxWidth:'500px', lineHeight:1.5}}>{profile.bio}</p>
+                <p style={{color:'#f5a623', fontSize:'0.85rem', fontWeight:700, margin:'0 0 4px'}}>@{profile.username}</p>
+
+                {/* NOTE MOYENNE */}
+                {avgRating && (
+                  <div style={{display:'flex', alignItems:'center', gap:'6px', marginBottom:'6px'}}>
+                    <span style={{fontSize:'1rem'}}>{'⭐'.repeat(Math.round(Number(avgRating)))}</span>
+                    <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:'#111a14'}}>{avgRating}</span>
+                    <span style={{fontSize:'0.75rem', color:'#6b7c6e'}}>({reviews.length} avis)</span>
+                  </div>
                 )}
+
+                {profile.bio && <p style={{color:'#6b7c6e', fontSize:'0.85rem', margin:'0 0 6px', maxWidth:'500px', lineHeight:1.5}}>{profile.bio}</p>}
                 <div style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
                   {profile.location && <span style={{fontSize:'0.78rem', color:'#6b7c6e'}}>📍 {profile.location}</span>}
                   <span style={{fontSize:'0.78rem', color:'#6b7c6e'}}>📅 Membre depuis {new Date(profile.created_at).toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}</span>
@@ -190,19 +251,22 @@ export default function PublicProfile() {
               </div>
             </div>
 
-            {/* BOUTONS */}
-            <div style={{display:'flex', gap:'8px', flexShrink:0}}>
+            <div style={{display:'flex', gap:'8px', flexShrink:0, flexWrap:'wrap'}}>
               {isOwner ? (
                 <button onClick={() => setEditMode(!editMode)} style={{padding:'8px 16px', background: editMode ? '#fff1f0' : '#f5f7f5', border:'1px solid ' + (editMode ? '#ffd6d6' : '#e8ede9'), borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color: editMode ? '#c0392b' : '#111a14', cursor:'pointer'}}>
-                  {editMode ? '✕ Annuler' : '✏️ Modifier le profil'}
+                  {editMode ? '✕ Annuler' : '✏️ Modifier'}
                 </button>
               ) : (
-                <button onClick={() => {
-                  if (!currentUser) { window.location.href = '/auth?mode=login'; return }
-                  window.location.href = '/messages'
-                }} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>
-                  💬 Contacter
-                </button>
+                <>
+                  <button onClick={() => window.location.href='/messages'} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>
+                    💬 Contacter
+                  </button>
+                  {!alreadyReviewed && !isOwner && currentUser && (
+                    <button onClick={() => setShowReviewForm(!showReviewForm)} style={{padding:'8px 16px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color:'#78350f', cursor:'pointer'}}>
+                      ⭐ Laisser un avis
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -219,7 +283,7 @@ export default function PublicProfile() {
                 <div>
                   <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>📝 Bio</label>
                   <textarea value={editForm.bio} onChange={e => setEditForm({...editForm, bio: e.target.value})}
-                    placeholder="Décrivez-vous en quelques mots... ex: Vendeur de téléphones à Kigali, livraison possible"
+                    placeholder="Décrivez-vous en quelques mots..."
                     maxLength={200} rows={3}
                     style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9', resize:'none', boxSizing:'border-box'}} />
                   <div style={{fontSize:'0.7rem', color:'#9ca3af', textAlign:'right', marginTop:'3px'}}>{editForm.bio.length}/200</div>
@@ -236,6 +300,45 @@ export default function PublicProfile() {
               </div>
             </div>
           )}
+
+          {/* FORMULAIRE AVIS */}
+          {showReviewForm && !isOwner && (
+            <div style={{marginTop:'20px', paddingTop:'20px', borderTop:'1px solid #e8ede9'}}>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>⭐ Laisser un avis</h3>
+              {reviewMsg && (
+                <div style={{background:'#fff1f0', color:'#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'12px', border:'1px solid #ffd6d6'}}>
+                  {reviewMsg}
+                </div>
+              )}
+              <div style={{marginBottom:'14px'}}>
+                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'8px', textTransform:'uppercase'}}>Note</label>
+                <div style={{display:'flex', gap:'8px'}}>
+                  {[1,2,3,4,5].map(n => (
+                    <span key={n} className="star-btn" onClick={() => setReviewForm({...reviewForm, rating: n})}
+                      style={{fontSize:'1.8rem', opacity: n <= reviewForm.rating ? 1 : 0.3}}>
+                      ⭐
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div style={{marginBottom:'12px'}}>
+                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Commentaire</label>
+                <textarea value={reviewForm.comment} onChange={e => setReviewForm({...reviewForm, comment: e.target.value})}
+                  placeholder="Décrivez votre expérience avec ce vendeur..."
+                  rows={3} maxLength={300}
+                  style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9', resize:'none', boxSizing:'border-box'}} />
+                <div style={{fontSize:'0.7rem', color:'#9ca3af', textAlign:'right', marginTop:'3px'}}>{reviewForm.comment.length}/300</div>
+              </div>
+              <div style={{display:'flex', gap:'8px'}}>
+                <button onClick={handleSubmitReview} disabled={submittingReview} style={{flex:1, padding:'11px', background: submittingReview ? '#ccc' : '#1a7a4a', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:'white', cursor: submittingReview ? 'not-allowed' : 'pointer'}}>
+                  {submittingReview ? '⏳...' : '✅ Publier l\'avis'}
+                </button>
+                <button onClick={() => setShowReviewForm(false)} style={{padding:'11px 16px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', cursor:'pointer'}}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ANNONCES */}
@@ -247,13 +350,13 @@ export default function PublicProfile() {
         </div>
 
         {ads.length === 0 ? (
-          <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
+          <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9', marginBottom:'20px'}}>
             <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📭</div>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune annonce</h3>
             <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Cet utilisateur n'a pas encore d'annonces</p>
           </div>
         ) : (
-          <div className="pub-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
+          <div className="pub-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'24px'}}>
             {ads.map((ad: any) => (
               <div key={ad.id} className="ad-card" onClick={() => window.location.href='/annonce/' + ad.id}
                 style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9', boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
@@ -264,9 +367,7 @@ export default function PublicProfile() {
                     <span style={{opacity:0.5}}>{catEmoji[ad.category] || '📦'}</span>
                   )}
                   {ad.is_boosted && (
-                    <div style={{position:'absolute', top:'10px', left:'10px', background:'#f5a623', color:'#111a14', padding:'3px 9px', borderRadius:'6px', fontSize:'0.68rem', fontWeight:800}}>
-                      ⚡ Mis en avant
-                    </div>
+                    <div style={{position:'absolute', top:'10px', left:'10px', background:'#f5a623', color:'#111a14', padding:'3px 9px', borderRadius:'6px', fontSize:'0.68rem', fontWeight:800}}>⚡ Mis en avant</div>
                   )}
                   <div style={{position:'absolute', top:'10px', right:'10px'}} onClick={e => e.stopPropagation()}>
                     <FavoriteButton adId={ad.id} onLogin={() => window.location.href='/auth?mode=login'} />
@@ -278,12 +379,59 @@ export default function PublicProfile() {
                   <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#0f5233', marginBottom:'8px'}}>
                     {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600}}>RWF</span>
                   </div>
-                  {ad.province && <div style={{fontSize:'0.72rem', color:'#6b7c6e', marginBottom:'10px'}}>📍 {ad.province}</div>}
+                  {ad.province && <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>📍 {ad.province}</div>}
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        {/* AVIS */}
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>
+              ⭐ Avis ({reviews.length})
+              {avgRating && <span style={{fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', marginLeft:'8px'}}>{avgRating}/5</span>}
+            </h2>
+            {!isOwner && !alreadyReviewed && currentUser && (
+              <button onClick={() => setShowReviewForm(true)} style={{padding:'7px 14px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color:'#78350f', cursor:'pointer'}}>
+                + Laisser un avis
+              </button>
+            )}
+          </div>
+
+          {reviews.length === 0 ? (
+            <div style={{background:'white', borderRadius:'14px', padding:'32px', textAlign:'center', border:'1px solid #e8ede9'}}>
+              <div style={{fontSize:'2rem', marginBottom:'8px'}}>⭐</div>
+              <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Aucun avis pour l'instant</p>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+              {reviews.map((review: any, i: number) => (
+                <div key={i} style={{background:'white', borderRadius:'12px', padding:'16px', border:'1px solid #e8ede9'}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'8px'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                      <div style={{width:'36px', height:'36px', borderRadius:'50%', background:'#1a7a4a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.9rem', fontWeight:800, color:'white', fontFamily:'Syne,sans-serif', flexShrink:0}}>
+                        {(review.reviewer?.username || review.reviewer?.full_name || 'U')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>
+                          {review.reviewer?.username ? '@' + review.reviewer.username : review.reviewer?.full_name || 'Utilisateur'}
+                        </div>
+                        <div style={{fontSize:'0.68rem', color:'#9ca3af'}}>
+                          {new Date(review.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{fontSize:'1rem'}}>{'⭐'.repeat(review.rating)}</div>
+                  </div>
+                  <p style={{color:'#333', fontSize:'0.85rem', lineHeight:1.6, margin:0}}>{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
