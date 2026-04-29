@@ -53,20 +53,17 @@ export default function AnnonceDetail() {
   }
 
   if (loading) return (
-    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f4f1'}}>
-      <div style={{textAlign:'center'}}>
-        <div style={{fontSize:'3rem', marginBottom:'12px'}}>⏳</div>
-        <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>Chargement...</p>
-      </div>
+    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
+      <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>⏳ Chargement...</p>
     </div>
   )
 
   if (!ad) return (
-    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f4f1'}}>
+    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
       <div style={{textAlign:'center'}}>
         <div style={{fontSize:'3rem', marginBottom:'12px'}}>😕</div>
-        <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px'}}>Annonce introuvable</h2>
-        <a href="/" style={{color:'#1a7a4a', fontWeight:600}}>Retour a l accueil</a>
+        <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Annonce introuvable</h2>
+        <a href="/" style={{color:'#1a7a4a', fontWeight:600, textDecoration:'none'}}>← Retour a l accueil</a>
       </div>
     </div>
   )
@@ -76,7 +73,7 @@ export default function AnnonceDetail() {
   const waText = encodeURIComponent('Bonjour, je suis interesse par votre annonce sur SokoDeal : ' + ad.title)
 
   return (
-    <div style={{minHeight:'100vh', background:'#f0f4f1'}}>
+    <div style={{minHeight:'100vh', background:'#f5f7f5'}}>
       <style>{`
         @media (max-width: 768px) {
           .detail-layout { grid-template-columns: 1fr !important; }
@@ -85,21 +82,23 @@ export default function AnnonceDetail() {
         }
       `}</style>
 
-      <header style={{background:'#0f5233', position:'sticky', top:0, zIndex:100, boxShadow:'0 2px 16px rgba(0,0,0,0.18)'}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 4%', height:'58px'}}>
+      {/* HEADER */}
+      <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'58px', maxWidth:'1100px', margin:'0 auto'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
             <div style={{width:'32px', height:'32px', background:'#f5a623', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px'}}>🦁</div>
-            <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'white'}}>Soko<span style={{color:'#f5a623'}}>Deal</span></span>
+            <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
           </a>
           <div style={{display:'flex', gap:'8px'}}>
             {user ? (
-              <button onClick={() => window.location.href='/profil'} style={{display:'flex', alignItems:'center', gap:'6px', padding:'7px 14px', background:'rgba(255,255,255,0.12)', border:'1.5px solid rgba(255,255,255,0.35)', borderRadius:'8px', color:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
-                <div style={{width:'24px', height:'24px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'0.75rem', color:'#111a14'}}>
+              <button onClick={() => window.location.href='/profil'} style={{display:'flex', alignItems:'center', gap:'6px', padding:'7px 14px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'8px', color:'#111a14', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
+                <div style={{width:'22px', height:'22px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'0.72rem', color:'#111a14'}}>
                   {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
                 </div>
+                Mon compte
               </button>
             ) : (
-              <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'7px 14px', border:'1.5px solid rgba(255,255,255,0.4)', borderRadius:'8px', color:'white', background:'transparent', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
+              <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'7px 14px', border:'1px solid #e8ede9', borderRadius:'8px', color:'#111a14', background:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
                 Connexion
               </button>
             )}
@@ -110,7 +109,8 @@ export default function AnnonceDetail() {
         </div>
       </header>
 
-      <div style={{background:'white', borderBottom:'1px solid #e8ede9', padding:'10px 4%'}}>
+      {/* BREADCRUMB */}
+      <div style={{background:'white', borderBottom:'1px solid #f0f4f1', padding:'10px 5%'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', fontSize:'0.78rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap'}}>
           <a href="/" style={{color:'#1a7a4a', textDecoration:'none', fontWeight:600}}>Accueil</a>
           <span>›</span>
@@ -120,24 +120,28 @@ export default function AnnonceDetail() {
         </div>
       </div>
 
-      <div className="detail-layout" style={{maxWidth:'1100px', margin:'0 auto', padding:'20px 4%', display:'grid', gridTemplateColumns:'1fr 340px', gap:'20px', alignItems:'start'}}>
+      {/* CONTENU */}
+      <div className="detail-layout" style={{maxWidth:'1100px', margin:'0 auto', padding:'20px 5%', display:'grid', gridTemplateColumns:'1fr 340px', gap:'20px', alignItems:'start'}}>
 
+        {/* GAUCHE */}
         <div>
-          <div style={{background:'white', borderRadius:'16px', overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'16px'}}>
-            <div style={{height:'280px', background:'#e8f5ee', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'5rem', position:'relative', overflow:'hidden'}}>
+
+          {/* GALERIE */}
+          <div style={{background:'white', borderRadius:'14px', overflow:'hidden', border:'1px solid #e8ede9', marginBottom:'16px'}}>
+            <div style={{height:'300px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'5rem', position:'relative', overflow:'hidden'}}>
               {hasPhotos ? (
                 <img src={ad.images[activePhoto]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
               ) : (
-                <span>{catEmoji[ad.category] || '📦'}</span>
+                <span style={{opacity:0.4}}>{catEmoji[ad.category] || '📦'}</span>
               )}
-              <div style={{position:'absolute', top:'12px', left:'12px', background:'rgba(15,82,51,0.85)', color:'white', padding:'4px 10px', borderRadius:'7px', fontSize:'0.75rem', fontWeight:700}}>
+              <div style={{position:'absolute', top:'12px', left:'12px', background:'white', color:'#111a14', padding:'4px 10px', borderRadius:'7px', fontSize:'0.75rem', fontWeight:600, border:'1px solid #e8ede9'}}>
                 {catEmoji[ad.category]} {catLabel[ad.category] || ad.category}
               </div>
             </div>
             {hasPhotos && ad.images.length > 1 && (
               <div style={{display:'flex', gap:'6px', padding:'10px 14px', overflowX:'auto'}}>
                 {ad.images.map((img: string, i: number) => (
-                  <div key={i} onClick={() => setActivePhoto(i)} style={{width:'60px', height:'60px', flexShrink:0, borderRadius:'7px', overflow:'hidden', cursor:'pointer', border: activePhoto === i ? '3px solid #1a7a4a' : '3px solid transparent'}}>
+                  <div key={i} onClick={() => setActivePhoto(i)} style={{width:'60px', height:'60px', flexShrink:0, borderRadius:'8px', overflow:'hidden', cursor:'pointer', border: activePhoto === i ? '2px solid #1a7a4a' : '2px solid transparent', opacity: activePhoto === i ? 1 : 0.6, transition:'all 0.2s'}}>
                     <img src={img} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                   </div>
                 ))}
@@ -145,36 +149,39 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          <div style={{background:'white', borderRadius:'16px', padding:'20px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'16px'}}>
-            <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', marginBottom:'10px', lineHeight:1.3}}>
+          {/* TITRE PRIX */}
+          <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'16px'}}>
+            <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', marginBottom:'12px', lineHeight:1.3, color:'#111a14'}}>
               {ad.title}
             </h1>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'10px'}}>
-              <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.7rem', color:'#1a7a4a'}}>
-                {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.9rem', fontWeight:600}}>RWF</span>
+              <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.7rem', color:'#0f5233'}}>
+                {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.9rem', fontWeight:600, color:'#6b7c6e'}}>RWF</span>
               </div>
               <div style={{display:'flex', gap:'6px', flexWrap:'wrap'}}>
                 {ad.province && (
-                  <span style={{background:'#e8f5ee', color:'#1a7a4a', padding:'5px 10px', borderRadius:'7px', fontSize:'0.75rem', fontWeight:600}}>
+                  <span style={{background:'#f5f7f5', color:'#111a14', padding:'5px 10px', borderRadius:'7px', fontSize:'0.75rem', fontWeight:600, border:'1px solid #e8ede9'}}>
                     📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
                   </span>
                 )}
-                <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'5px 10px', borderRadius:'7px', fontSize:'0.75rem', fontWeight:600}}>
-                  🕐 {new Date(ad.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
+                <span style={{background:'#f5f7f5', color:'#6b7c6e', padding:'5px 10px', borderRadius:'7px', fontSize:'0.75rem', border:'1px solid #e8ede9'}}>
+                  {new Date(ad.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'})}
                 </span>
               </div>
             </div>
           </div>
 
+          {/* DESCRIPTION */}
           {ad.description && (
-            <div style={{background:'white', borderRadius:'16px', padding:'20px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)', marginBottom:'16px'}}>
-              <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'12px'}}>📝 Description</h2>
-              <p style={{color:'#333', lineHeight:1.8, fontSize:'0.9rem', whiteSpace:'pre-wrap'}}>{ad.description}</p>
+            <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'16px'}}>
+              <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'12px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Description</h2>
+              <p style={{color:'#333', lineHeight:1.8, fontSize:'0.92rem', whiteSpace:'pre-wrap'}}>{ad.description}</p>
             </div>
           )}
 
-          <div style={{background:'white', borderRadius:'16px', padding:'20px', boxShadow:'0 2px 12px rgba(0,0,0,0.07)'}}>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'14px'}}>📋 Details</h2>
+          {/* DETAILS */}
+          <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9'}}>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Details</h2>
             <div className="detail-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
               {[
                 { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
@@ -182,27 +189,30 @@ export default function AnnonceDetail() {
                 { label:'Ville', value: ad.province || '—', icon:'🗺️' },
                 { label:'District', value: ad.district || '—', icon:'📍' },
                 { label:'Publie le', value: new Date(ad.created_at).toLocaleDateString('fr-FR'), icon:'📅' },
-                { label:'Statut', value: ad.is_active ? 'Active ✅' : 'Inactive', icon:'🔘' },
+                { label:'Statut', value: ad.is_active ? 'Active' : 'Inactive', icon:'🔘' },
               ].map((item, i) => (
-                <div key={i} style={{background:'#f5f7f5', borderRadius:'9px', padding:'10px 12px'}}>
-                  <div style={{fontSize:'0.72rem', color:'#6b7c6e', fontWeight:600, marginBottom:'3px'}}>{item.icon} {item.label}</div>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem'}}>{item.value}</div>
+                <div key={i} style={{background:'#f5f7f5', borderRadius:'9px', padding:'11px 13px', border:'1px solid #e8ede9'}}>
+                  <div style={{fontSize:'0.7rem', color:'#6b7c6e', fontWeight:600, marginBottom:'3px', textTransform:'uppercase', letterSpacing:'0.04em'}}>{item.icon} {item.label}</div>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{item.value}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="detail-right" style={{position:'sticky', top:'80px'}}>
-          <div style={{background:'white', borderRadius:'16px', padding:'20px', boxShadow:'0 4px 24px rgba(10,60,25,0.12)', marginBottom:'14px'}}>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', marginBottom:'14px'}}>💬 Contacter le vendeur</h2>
+        {/* DROITE */}
+        <div className="detail-right" style={{position:'sticky', top:'78px'}}>
+
+          {/* CONTACT */}
+          <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'12px'}}>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'16px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Contacter le vendeur</h2>
 
             {msgSent ? (
               <div style={{textAlign:'center', padding:'16px 0'}}>
-                <div style={{fontSize:'2.5rem', marginBottom:'8px'}}>✅</div>
-                <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, color:'#1a7a4a', marginBottom:'4px'}}>Message envoye !</p>
-                <p style={{fontSize:'0.82rem', color:'#6b7c6e'}}>Le vendeur vous repondra bientot.</p>
-                <button onClick={() => setMsgSent(false)} style={{marginTop:'12px', padding:'7px 16px', background:'#f0f4f1', border:'none', borderRadius:'8px', color:'#1a7a4a', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', cursor:'pointer'}}>
+                <div style={{width:'48px', height:'48px', background:'#e8f5ee', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem', margin:'0 auto 12px'}}>✅</div>
+                <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, color:'#1a7a4a', marginBottom:'4px', fontSize:'0.9rem'}}>Message envoye !</p>
+                <p style={{fontSize:'0.8rem', color:'#6b7c6e', marginBottom:'14px'}}>Le vendeur vous repondra bientot.</p>
+                <button onClick={() => setMsgSent(false)} style={{padding:'7px 16px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'8px', color:'#111a14', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer'}}>
                   Envoyer un autre message
                 </button>
               </div>
@@ -211,16 +221,16 @@ export default function AnnonceDetail() {
                 <textarea value={message} onChange={e => setMessage(e.target.value)}
                   placeholder="Bonjour, je suis interesse par cette annonce. Est-elle encore disponible ?"
                   rows={4}
-                  style={{width:'100%', padding:'11px 13px', border:'1.5px solid #e8ede9', borderRadius:'10px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#faf7f2', marginBottom:'10px', boxSizing:'border-box'}}
+                  style={{width:'100%', padding:'11px 13px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#fafaf9', marginBottom:'10px', boxSizing:'border-box', color:'#111a14'}}
                 />
                 <button onClick={handleContact} disabled={sending || !message.trim()} style={{
                   width:'100%', padding:'12px',
-                  background: sending || !message.trim() ? '#ccc' : '#1a7a4a',
-                  border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800,
-                  fontSize:'0.95rem', color:'white', cursor: sending || !message.trim() ? 'not-allowed' : 'pointer',
-                  marginBottom:'8px'
+                  background: sending || !message.trim() ? '#e8ede9' : '#1a7a4a',
+                  border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700,
+                  fontSize:'0.9rem', color: sending || !message.trim() ? '#6b7c6e' : 'white',
+                  cursor: sending || !message.trim() ? 'not-allowed' : 'pointer', marginBottom:'8px'
                 }}>
-                  {sending ? '⏳ Envoi...' : '📨 Envoyer le message'}
+                  {sending ? '⏳ Envoi...' : 'Envoyer le message'}
                 </button>
                 {!user && (
                   <p style={{fontSize:'0.75rem', color:'#6b7c6e', textAlign:'center'}}>
@@ -233,9 +243,10 @@ export default function AnnonceDetail() {
             {ad.phone && (
               <a href={'tel:' + ad.phone} style={{
                 display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                width:'100%', padding:'11px', background:'#e8f5ee', borderRadius:'10px',
-                fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem',
-                color:'#0f5233', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'
+                width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px',
+                fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem',
+                color:'#111a14', textDecoration:'none', marginTop:'8px', boxSizing:'border-box',
+                border:'1px solid #e8ede9'
               }}>
                 📞 {ad.phone}
               </a>
@@ -246,8 +257,8 @@ export default function AnnonceDetail() {
                 target="_blank" rel="noopener noreferrer"
                 style={{
                   display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                  width:'100%', padding:'11px', background:'#25D366', borderRadius:'10px',
-                  fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem',
+                  width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px',
+                  fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem',
                   color:'white', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'
                 }}>
                 💬 WhatsApp
@@ -255,8 +266,9 @@ export default function AnnonceDetail() {
             )}
           </div>
 
-          <div style={{background:'#fff8e7', borderRadius:'13px', padding:'14px', border:'1.5px solid #f5e6c0'}}>
-            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', marginBottom:'8px', color:'#7a5c00'}}>
+          {/* SECURITE */}
+          <div style={{background:'#fffbeb', borderRadius:'12px', padding:'14px', border:'1px solid #fde68a'}}>
+            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'8px', color:'#78350f', textTransform:'uppercase', letterSpacing:'0.04em'}}>
               🛡️ Conseils de securite
             </h3>
             {[
@@ -264,8 +276,8 @@ export default function AnnonceDetail() {
               'Rencontrez le vendeur dans un lieu public',
               'Verifiez l article avant tout paiement'
             ].map((tip, i) => (
-              <div key={i} style={{display:'flex', gap:'6px', marginBottom:'5px', fontSize:'0.75rem', color:'#7a5c00'}}>
-                <span style={{fontWeight:700}}>✓</span> {tip}
+              <div key={i} style={{display:'flex', gap:'6px', marginBottom:'5px', fontSize:'0.75rem', color:'#78350f'}}>
+                <span style={{fontWeight:700, flexShrink:0}}>✓</span> {tip}
               </div>
             ))}
           </div>
