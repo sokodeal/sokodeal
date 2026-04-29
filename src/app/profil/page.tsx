@@ -359,7 +359,7 @@ export default function ProfilPage() {
                       )}
                       {/* Bouton retirer favori */}
                       <div style={{position:'absolute', top:'8px', right:'8px'}} onClick={e => e.stopPropagation()}>
-                        <FavoriteButton adId={ad.id} size="sm" />
+                        <FavoriteButton adId={ad.id} size="sm" onLogin={() => {}} />
                       </div>
                     </div>
                     <div style={{padding:'10px'}}>
