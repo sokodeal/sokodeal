@@ -10,6 +10,14 @@ export default function PublicProfile() {
   const [ads, setAds] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isOwner, setIsOwner] = useState(false)
+
+  // Edit mode
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState({ bio: '', location: '' })
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [editMsg, setEditMsg] = useState('')
 
   const catEmoji: any = {
     'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿','voiture':'🚗',
@@ -31,6 +39,9 @@ export default function PublicProfile() {
 
       if (!userData) { setLoading(false); return }
       setProfile(userData)
+      setEditForm({ bio: userData.bio || '', location: userData.location || '' })
+
+      if (user && user.id === userData.id) setIsOwner(true)
 
       const { data: adsData } = await supabase
         .from('ads')
@@ -45,6 +56,35 @@ export default function PublicProfile() {
     init()
   }, [username])
 
+  const handleBannerUpload = async (e: any) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingBanner(true)
+    const ext = file.name.split('.').pop()
+    const path = `banners/${currentUser.id}/${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('ads-images').upload(path, file)
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('ads-images').getPublicUrl(path)
+      await supabase.from('users').update({ banner_url: urlData.publicUrl }).eq('id', currentUser.id)
+      setProfile({ ...profile, banner_url: urlData.publicUrl })
+    }
+    setUploadingBanner(false)
+  }
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    const { error } = await supabase
+      .from('users')
+      .update({ bio: editForm.bio, location: editForm.location })
+      .eq('id', currentUser.id)
+    setSavingProfile(false)
+    if (error) { setEditMsg('❌ ' + error.message); return }
+    setProfile({ ...profile, bio: editForm.bio, location: editForm.location })
+    setEditMsg('✅ Profil mis à jour !')
+    setEditMode(false)
+    setTimeout(() => setEditMsg(''), 3000)
+  }
+
   if (loading) return (
     <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
       <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>⏳ Chargement...</p>
@@ -56,8 +96,8 @@ export default function PublicProfile() {
       <div style={{textAlign:'center'}}>
         <div style={{fontSize:'3rem', marginBottom:'12px'}}>😕</div>
         <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Profil introuvable</h2>
-        <p style={{color:'#6b7c6e', marginBottom:'16px', fontSize:'0.88rem'}}>@{username} n existe pas sur SokoDeal</p>
-        <a href="/" style={{color:'#1a7a4a', fontWeight:600, textDecoration:'none'}}>← Retour a l accueil</a>
+        <p style={{color:'#6b7c6e', marginBottom:'16px', fontSize:'0.88rem'}}>@{username} n'existe pas sur SokoDeal</p>
+        <a href="/" style={{color:'#1a7a4a', fontWeight:600, textDecoration:'none'}}>← Retour à l'accueil</a>
       </div>
     </div>
   )
@@ -73,6 +113,8 @@ export default function PublicProfile() {
         }
         .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important; }
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
+        .banner-overlay { opacity: 0; transition: opacity 0.2s; }
+        .banner-wrap:hover .banner-overlay { opacity: 1; }
       `}</style>
 
       {/* HEADER */}
@@ -93,55 +135,107 @@ export default function PublicProfile() {
               </button>
             )}
             <button onClick={() => window.location.href='/publier'} style={{padding:'7px 14px', background:'#f5a623', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'#111a14', cursor:'pointer'}}>
-              + Deposer
+              + Déposer
             </button>
           </div>
         </div>
       </header>
 
-      {/* HERO PROFIL */}
-      <div style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'36px 5% 56px'}}>
-        <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', alignItems:'center', gap:'20px'}}>
-          <div style={{width:'72px', height:'72px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.8rem', fontWeight:800, color:'#111a14', fontFamily:'Syne,sans-serif', flexShrink:0, border:'3px solid rgba(255,255,255,0.3)'}}>
-            {(profile.full_name || profile.email || 'U')[0].toUpperCase()}
-          </div>
-          <div>
-            <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', color:'white', marginBottom:'4px'}}>
-              {profile.full_name || '@' + profile.username}
-            </h1>
-            <p style={{color:'#f5a623', fontSize:'0.88rem', fontWeight:700, marginBottom:'6px'}}>@{profile.username}</p>
-            <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
-              <span style={{background:'rgba(255,255,255,0.12)', color:'white', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>
-                Membre SokoDeal
-              </span>
-              <span style={{background:'rgba(245,166,35,0.25)', color:'#f5a623', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>
-                {ads.length} annonce(s)
-              </span>
-              {profile.is_verified && (
-                <span style={{background:'rgba(255,255,255,0.2)', color:'white', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>
-                  ✅ Verifie
-                </span>
+      {/* BANNIERE */}
+      <div className="banner-wrap" style={{position:'relative', height:'200px', overflow:'hidden'}}>
+        {profile.banner_url ? (
+          <img src={profile.banner_url} alt="Bannière" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+        ) : (
+          <div style={{width:'100%', height:'100%', background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)'}} />
+        )}
+
+        {/* Overlay modifier bannière si owner */}
+        {isOwner && (
+          <label className="banner-overlay" style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}>
+            <div style={{background:'rgba(255,255,255,0.15)', border:'1.5px solid rgba(255,255,255,0.5)', borderRadius:'10px', padding:'10px 20px', color:'white', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', backdropFilter:'blur(4px)'}}>
+              {uploadingBanner ? '⏳ Upload...' : '🖼️ Changer la bannière'}
+            </div>
+            <input type="file" accept="image/*" onChange={handleBannerUpload} style={{display:'none'}} disabled={uploadingBanner} />
+          </label>
+        )}
+      </div>
+
+      {/* PROFIL CARD */}
+      <div style={{maxWidth:'1100px', margin:'-40px auto 0', padding:'0 5% 40px', position:'relative', zIndex:10}}>
+
+        <div style={{background:'white', borderRadius:'16px', padding:'24px', border:'1px solid #e8ede9', marginBottom:'20px', boxShadow:'0 4px 20px rgba(0,0,0,0.07)'}}>
+          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'16px', flexWrap:'wrap'}}>
+
+            {/* AVATAR + INFOS */}
+            <div style={{display:'flex', alignItems:'center', gap:'16px'}}>
+              <div style={{width:'72px', height:'72px', borderRadius:'50%', background:'#1a7a4a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.8rem', fontWeight:800, color:'white', fontFamily:'Syne,sans-serif', flexShrink:0, border:'3px solid white', boxShadow:'0 2px 12px rgba(0,0,0,0.12)'}}>
+                {(profile.full_name || profile.username || 'U')[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'3px'}}>
+                  <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'#111a14', margin:0}}>
+                    {profile.full_name || '@' + profile.username}
+                  </h1>
+                  {profile.is_verified && <span style={{background:'#e8f5ee', color:'#1a7a4a', padding:'2px 8px', borderRadius:'20px', fontSize:'0.7rem', fontWeight:700}}>✅ Vérifié</span>}
+                </div>
+                <p style={{color:'#f5a623', fontSize:'0.85rem', fontWeight:700, margin:'0 0 6px'}}>@{profile.username}</p>
+                {profile.bio && (
+                  <p style={{color:'#6b7c6e', fontSize:'0.85rem', margin:'0 0 6px', maxWidth:'500px', lineHeight:1.5}}>{profile.bio}</p>
+                )}
+                <div style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
+                  {profile.location && <span style={{fontSize:'0.78rem', color:'#6b7c6e'}}>📍 {profile.location}</span>}
+                  <span style={{fontSize:'0.78rem', color:'#6b7c6e'}}>📅 Membre depuis {new Date(profile.created_at).toLocaleDateString('fr-FR', {month:'long', year:'numeric'})}</span>
+                  <span style={{fontSize:'0.78rem', color:'#1a7a4a', fontWeight:600}}>📋 {ads.length} annonce(s)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* BOUTONS */}
+            <div style={{display:'flex', gap:'8px', flexShrink:0}}>
+              {isOwner ? (
+                <button onClick={() => setEditMode(!editMode)} style={{padding:'8px 16px', background: editMode ? '#fff1f0' : '#f5f7f5', border:'1px solid ' + (editMode ? '#ffd6d6' : '#e8ede9'), borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color: editMode ? '#c0392b' : '#111a14', cursor:'pointer'}}>
+                  {editMode ? '✕ Annuler' : '✏️ Modifier le profil'}
+                </button>
+              ) : (
+                <button onClick={() => {
+                  if (!currentUser) { window.location.href = '/auth?mode=login'; return }
+                  window.location.href = '/messages'
+                }} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>
+                  💬 Contacter
+                </button>
               )}
             </div>
           </div>
-        </div>
-      </div>
 
-      <div style={{maxWidth:'1100px', margin:'-24px auto 0', padding:'0 5% 40px'}}>
-
-        {/* STATS RAPIDES */}
-        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px', marginBottom:'24px'}}>
-          {[
-            { label:'Annonces actives', value: ads.length, icon:'📋' },
-            { label:'Localisation', value: profile.phone ? '📞 ' + profile.phone : '—', icon:'📍' },
-            { label:'Membre depuis', value: new Date(profile.created_at).toLocaleDateString('fr-FR', {month:'long', year:'numeric'}), icon:'📅' },
-          ].map((s, i) => (
-            <div key={i} style={{background:'white', borderRadius:'12px', padding:'14px', border:'1px solid #e8ede9', textAlign:'center'}}>
-              <div style={{fontSize:'1.3rem', marginBottom:'4px'}}>{s.icon}</div>
-              <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#111a14', marginBottom:'2px'}}>{s.value}</div>
-              <div style={{fontSize:'0.7rem', color:'#6b7c6e'}}>{s.label}</div>
+          {/* EDIT FORM */}
+          {editMode && isOwner && (
+            <div style={{marginTop:'20px', paddingTop:'20px', borderTop:'1px solid #e8ede9'}}>
+              {editMsg && (
+                <div style={{background: editMsg.includes('✅') ? '#e8f5ee' : '#fff1f0', color: editMsg.includes('✅') ? '#1a7a4a' : '#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'12px', border:'1px solid ' + (editMsg.includes('✅') ? '#b7dfca' : '#ffd6d6')}}>
+                  {editMsg}
+                </div>
+              )}
+              <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>📝 Bio</label>
+                  <textarea value={editForm.bio} onChange={e => setEditForm({...editForm, bio: e.target.value})}
+                    placeholder="Décrivez-vous en quelques mots... ex: Vendeur de téléphones à Kigali, livraison possible"
+                    maxLength={200} rows={3}
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9', resize:'none', boxSizing:'border-box'}} />
+                  <div style={{fontSize:'0.7rem', color:'#9ca3af', textAlign:'right', marginTop:'3px'}}>{editForm.bio.length}/200</div>
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>📍 Localisation</label>
+                  <input value={editForm.location} onChange={e => setEditForm({...editForm, location: e.target.value})}
+                    placeholder="Ex: Kigali, Kimironko"
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}} />
+                </div>
+                <button onClick={handleSaveProfile} disabled={savingProfile} style={{padding:'11px', background: savingProfile ? '#ccc' : '#1a7a4a', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:'white', cursor: savingProfile ? 'not-allowed' : 'pointer'}}>
+                  {savingProfile ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
+                </button>
+              </div>
             </div>
-          ))}
+          )}
         </div>
 
         {/* ANNONCES */}
@@ -156,7 +250,7 @@ export default function PublicProfile() {
           <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
             <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📭</div>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune annonce</h3>
-            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Cet utilisateur n a pas encore d annonces</p>
+            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Cet utilisateur n'a pas encore d'annonces</p>
           </div>
         ) : (
           <div className="pub-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
