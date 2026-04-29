@@ -1,6 +1,6 @@
 // hooks/useFavorites.js
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '@/lib/supabase'
 
 /**
  * Hook pour gérer les favoris de l'utilisateur connecté.
