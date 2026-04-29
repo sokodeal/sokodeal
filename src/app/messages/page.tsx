@@ -29,7 +29,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!user || !activeConv) return
-    const ch = supabase.channel('msgs-' + activeConv.other_id + activeConv.ad_id)
+    const ch = supabase.channel('msgs-' + activeConv.other_id + '-' + activeConv.ad_id)
     ch.on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'messages'
     }, (payload) => {
@@ -55,10 +55,14 @@ export default function MessagesPage() {
 
     if (!data) return
 
+    // Clé unique : ad_id + l'autre utilisateur
+    // On prend toujours le plus petit ID en premier pour éviter les doublons
     const convMap = new Map()
     for (const msg of data) {
       const otherId = msg.sender_id === u.id ? msg.receiver_id : msg.sender_id
-      const key = msg.ad_id + '_' + otherId
+      // Clé stricte : ad_id + otherId (séparés par __ pour éviter collisions)
+      const key = `${msg.ad_id}__${otherId}`
+
       if (!convMap.has(key)) {
         convMap.set(key, {
           ad_id: msg.ad_id,
@@ -90,19 +94,27 @@ export default function MessagesPage() {
 
   const openConversation = async (conv: any) => {
     setActiveConv(conv)
+
+    // Requête stricte : seulement les messages entre ces 2 utilisateurs pour cette annonce
     const { data } = await supabase
       .from('messages')
       .select('*')
       .eq('ad_id', conv.ad_id)
-      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`)
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),` +
+        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`
+      )
       .order('created_at', { ascending: true })
+
     setMessages(data || [])
 
+    // Marquer comme lu
     await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('receiver_id', user.id)
       .eq('ad_id', conv.ad_id)
+      .eq('sender_id', conv.other_id) // ← clé du fix : on cible uniquement cet expéditeur
 
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
@@ -115,7 +127,8 @@ export default function MessagesPage() {
       .from('messages')
       .update({ is_read: true })
       .eq('receiver_id', userId)
-      .eq('ad_id', activeConv?.ad_id)
+      .eq('sender_id', activeConv.other_id)
+      .eq('ad_id', activeConv.ad_id)
   }
 
   const sendMessage = async () => {
@@ -221,13 +234,13 @@ export default function MessagesPage() {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                        <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                        <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: conv.unread > 0 ? 800 : 700, fontSize: '0.82rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
                           {conv.ad?.title || 'Annonce supprimée'}
                         </span>
                         <span style={{ fontSize: '0.68rem', color: '#9ca3af', flexShrink: 0 }}>{formatTime(conv.last_date)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7c6e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+                        <span style={{ fontSize: '0.75rem', color: conv.unread > 0 ? '#111a14' : '#6b7c6e', fontWeight: conv.unread > 0 ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
                           {conv.last_message?.substring(0, 40)}{conv.last_message?.length > 40 ? '...' : ''}
                         </span>
                         {conv.unread > 0 && (
@@ -317,7 +330,6 @@ export default function MessagesPage() {
               </>
             )}
           </div>
-
         </div>
       </div>
     </div>
