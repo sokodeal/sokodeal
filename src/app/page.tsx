@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import FavoriteButton from '@/components/FavoriteButton'
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
@@ -157,6 +158,11 @@ export default function Home() {
         }
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
         .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; }
+        .favorite-btn { display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:50%; background:rgba(255,255,255,0.92); backdrop-filter:blur(6px); cursor:pointer; transition:transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease; box-shadow:0 1px 6px rgba(0,0,0,0.12); color:#9ca3af; flex-shrink:0; width:36px; height:36px; font-size:1.1rem; }
+        .favorite-btn:hover { transform:scale(1.12); color:#ef4444; }
+        .favorite-btn.active { color:#ef4444; background:#fff1f2; }
+        .favorite-btn.pending { opacity:0.6; pointer-events:none; }
+        .favorite-icon { width:55%; height:55%; transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
 
@@ -353,6 +359,13 @@ export default function Home() {
                         ⚡ Mis en avant
                       </div>
                     )}
+                    {/* ❤️ BOUTON FAVORI */}
+                    <div style={{position:'absolute', top:'10px', right:'10px'}} onClick={e => e.stopPropagation()}>
+                      <FavoriteButton
+                        adId={ad.id}
+                        onLogin={() => window.location.href='/auth?mode=login'}
+                      />
+                    </div>
                   </div>
                   <div style={{padding:'14px'}}>
                     <div style={{fontSize:'0.66rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'5px'}}>{ad.category}</div>
@@ -411,8 +424,8 @@ export default function Home() {
             </p>
           </div>
           <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
-           <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
-<a href="/cgu" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>CGU</a>
+            <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
+            <a href="/cgu" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>CGU</a>
             <span style={{color:'rgba(255,255,255,0.4)'}}>© 2025 SokoDeal · Made in Africa 🌍</span>
           </div>
         </div>
