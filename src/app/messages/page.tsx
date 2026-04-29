@@ -115,8 +115,7 @@ export default function MessagesPage() {
       )
       .order('created_at', { ascending: true })
 
-    setMessages(data || [])
-
+    // Marquer comme lu en base
     await supabase
       .from('messages')
       .update({ is_read: true })
@@ -124,6 +123,20 @@ export default function MessagesPage() {
       .eq('ad_id', conv.ad_id)
       .eq('sender_id', conv.other_id)
 
+    // Recharger les messages avec is_read à jour
+    const { data: updatedData } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('ad_id', conv.ad_id)
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),` +
+        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`
+      )
+      .order('created_at', { ascending: true })
+
+    setMessages(updatedData || [])
+
+    // Reset badge rouge
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
     ))
