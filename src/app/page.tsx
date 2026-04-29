@@ -18,6 +18,8 @@ export default function Home() {
   const [showFilters, setShowFilters] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [toast, setToast] = useState<any>(null)
+  const [profileResults, setProfileResults] = useState<any[]>([])
+  const [searchingProfiles, setSearchingProfiles] = useState(false)
 
   const villes = [
     'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
@@ -104,6 +106,22 @@ export default function Home() {
   }, [user])
 
   useEffect(() => {
+    // Recherche de profils si @ détecté
+    if (search.startsWith('@')) {
+      const q = search.slice(1).toLowerCase()
+      if (q.length >= 1) {
+        setSearchingProfiles(true)
+        supabase.from('users').select('*').ilike('username', q + '%').limit(5).then(({ data }) => {
+          setProfileResults(data || [])
+          setSearchingProfiles(false)
+        })
+      } else {
+        setProfileResults([])
+      }
+      return
+    }
+
+    setProfileResults([])
     let result = [...ads]
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -122,6 +140,7 @@ export default function Home() {
   const resetFilters = () => {
     setSearch(''); setFilterCat(''); setFilterVille('')
     setFilterPriceMin(''); setFilterPriceMax(''); setSortBy('recent')
+    setProfileResults([])
   }
 
   const hasFilters = search || filterCat || filterVille || filterPriceMin || filterPriceMax || sortBy !== 'recent'
@@ -164,6 +183,8 @@ export default function Home() {
         .favorite-btn.pending { opacity:0.6; pointer-events:none; }
         .favorite-icon { width:55%; height:55%; transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .profile-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
+        .profile-card { transition: box-shadow 0.18s, transform 0.18s; }
       `}</style>
 
       {toast && (
@@ -187,12 +208,14 @@ export default function Home() {
             <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.25rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
           </a>
 
-          <div style={{flex:1, maxWidth:'480px', display:'flex', background:'#f5f7f5', borderRadius:'9px', overflow:'hidden', border:'1px solid #e8ede9'}}>
-            <input type="text" placeholder="Rechercher..." value={search}
-              onChange={e => { setSearch(e.target.value); setActiveSection('main') }}
-              style={{flex:1, padding:'9px 14px', border:'none', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', background:'transparent', color:'#111a14'}}
-            />
-            <button style={{background:'#f5a623', border:'none', cursor:'pointer', padding:'9px 16px', fontSize:'1rem', color:'#111a14'}}>🔍</button>
+          <div style={{flex:1, maxWidth:'480px', position:'relative'}}>
+            <div style={{display:'flex', background:'#f5f7f5', borderRadius:'9px', overflow:'hidden', border:'1px solid #e8ede9'}}>
+              <input type="text" placeholder="Rechercher... ou @username" value={search}
+                onChange={e => { setSearch(e.target.value); setActiveSection('main') }}
+                style={{flex:1, padding:'9px 14px', border:'none', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', background:'transparent', color:'#111a14'}}
+              />
+              <button style={{background:'#f5a623', border:'none', cursor:'pointer', padding:'9px 16px', fontSize:'1rem', color:'#111a14'}}>🔍</button>
+            </div>
           </div>
 
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
@@ -264,7 +287,45 @@ export default function Home() {
         </div>
       </header>
 
-      {activeSection === 'main' && !search && !filterCat && (
+      {/* RÉSULTATS PROFILS */}
+      {search.startsWith('@') && (
+        <div style={{maxWidth:'1300px', margin:'0 auto', padding:'24px 5%'}}>
+          <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px', color:'#111a14'}}>
+            👤 Profils pour "{search}"
+          </h2>
+          {searchingProfiles ? (
+            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>⏳ Recherche en cours...</p>
+          ) : profileResults.length === 0 ? (
+            <div style={{background:'white', borderRadius:'12px', padding:'40px', textAlign:'center', border:'1px solid #e8ede9'}}>
+              <div style={{fontSize:'2rem', marginBottom:'8px'}}>😕</div>
+              <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Aucun profil trouvé pour "{search}"</p>
+              <p style={{color:'#9ca3af', fontSize:'0.78rem', marginTop:'6px'}}>Vérifiez l orthographe ou essayez un autre username</p>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+              {profileResults.map((profile: any) => (
+                <div key={profile.id} className="profile-card"
+                  onClick={() => window.location.href='/u/' + profile.username}
+                  style={{background:'white', borderRadius:'12px', padding:'16px 20px', border:'1px solid #e8ede9', display:'flex', alignItems:'center', gap:'14px', cursor:'pointer'}}>
+                  <div style={{width:'52px', height:'52px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', color:'#111a14', flexShrink:0}}>
+                    {(profile.full_name || profile.username || 'U')[0].toUpperCase()}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', color:'#111a14', marginBottom:'3px'}}>
+                      {profile.full_name || '@' + profile.username}
+                    </div>
+                    <div style={{fontSize:'0.78rem', color:'#1a7a4a', fontWeight:600}}>@{profile.username}</div>
+                    {profile.is_verified && <span style={{fontSize:'0.68rem', color:'#6b7c6e', marginTop:'2px', display:'block'}}>✅ Vérifié</span>}
+                  </div>
+                  <span style={{fontSize:'0.78rem', color:'#6b7c6e', fontWeight:600, flexShrink:0}}>Voir le profil →</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!search.startsWith('@') && activeSection === 'main' && !search && !filterCat && (
         <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'52px 5% 44px'}}>
           <div style={{maxWidth:'1300px', margin:'0 auto'}}>
             <p style={{color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'12px'}}>
@@ -288,7 +349,7 @@ export default function Home() {
         </div>
       )}
 
-      {activeSection === 'main' && (
+      {!search.startsWith('@') && activeSection === 'main' && (
         <div style={{padding:'24px 5%', maxWidth:'1300px', margin:'0 auto'}}>
 
           <div style={{background:'white', borderRadius:'12px', padding:'12px 16px', marginBottom:'20px', border:'1px solid #e8ede9'}}>
@@ -359,12 +420,8 @@ export default function Home() {
                         ⚡ Mis en avant
                       </div>
                     )}
-                    {/* ❤️ BOUTON FAVORI */}
                     <div style={{position:'absolute', top:'10px', right:'10px'}} onClick={e => e.stopPropagation()}>
-                      <FavoriteButton
-                        adId={ad.id}
-                        onLogin={() => window.location.href='/auth?mode=login'}
-                      />
+                      <FavoriteButton adId={ad.id} onLogin={() => window.location.href='/auth?mode=login'} />
                     </div>
                   </div>
                   <div style={{padding:'14px'}}>
