@@ -411,7 +411,8 @@ export default function Home() {
             </p>
           </div>
           <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
-            <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
+           <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
+<a href="/cgu" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>CGU</a>
             <span style={{color:'rgba(255,255,255,0.4)'}}>© 2025 SokoDeal · Made in Africa 🌍</span>
           </div>
         </div>
