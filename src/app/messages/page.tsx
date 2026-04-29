@@ -23,12 +23,10 @@ export default function MessagesPage() {
     init()
   }, [])
 
-  // Scroll to bottom quand nouveaux messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Temps réel : nouveaux messages dans la conversation active
   useEffect(() => {
     if (!user || !activeConv) return
     const ch = supabase.channel('msgs-' + activeConv.other_id + activeConv.ad_id)
@@ -57,7 +55,6 @@ export default function MessagesPage() {
 
     if (!data) return
 
-    // Grouper par (ad_id + other_user)
     const convMap = new Map()
     for (const msg of data) {
       const otherId = msg.sender_id === u.id ? msg.receiver_id : msg.sender_id
@@ -77,7 +74,6 @@ export default function MessagesPage() {
       }
     }
 
-    // Charger les titres des annonces
     const convList = Array.from(convMap.values())
     const adIds = [...new Set(convList.map(c => c.ad_id).filter(Boolean))]
     if (adIds.length > 0) {
@@ -101,8 +97,13 @@ export default function MessagesPage() {
       .or(`and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`)
       .order('created_at', { ascending: true })
     setMessages(data || [])
-    markAsRead(user.id)
-    // Reset unread dans la liste
+
+    await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('receiver_id', user.id)
+      .eq('ad_id', conv.ad_id)
+
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
     ))
@@ -133,7 +134,6 @@ export default function MessagesPage() {
     if (data) setMessages(prev => [...prev, data])
     setNewMessage('')
     setSending(false)
-    // Refresh conversations
     loadConversations(user)
   }
 
@@ -154,10 +154,8 @@ export default function MessagesPage() {
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
   }
 
-  const isLink = (text: string) => text.includes('sokodeal.app/annonce/')
   const extractLink = (text: string) => {
-    const parts = text.split(/(https:\/\/sokodeal\.app\/annonce\/[a-zA-Z0-9-]+)/)
-    return parts
+    return text.split(/(https:\/\/sokodeal\.app\/annonce\/[a-zA-Z0-9-]+)/)
   }
 
   if (loading) return (
@@ -178,7 +176,6 @@ export default function MessagesPage() {
         textarea:focus { border-color: #1a7a4a !important; outline: none; }
       `}</style>
 
-      {/* HEADER */}
       <header style={{ background: 'white', borderBottom: '1px solid #e8ede9', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5%', height: '58px', maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -203,7 +200,6 @@ export default function MessagesPage() {
 
         <div className="msg-layout" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px', flex: 1, minHeight: '600px' }}>
 
-          {/* LISTE CONVERSATIONS */}
           <div className="conv-panel" style={{ background: 'white', borderRadius: '14px', border: '1px solid #e8ede9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f4f1' }}>
               <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.88rem', color: '#111a14' }}>
@@ -226,7 +222,7 @@ export default function MessagesPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                         <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                          {conv.ad?.title || 'Annonce supprimee'}
+                          {conv.ad?.title || 'Annonce supprimée'}
                         </span>
                         <span style={{ fontSize: '0.68rem', color: '#9ca3af', flexShrink: 0 }}>{formatTime(conv.last_date)}</span>
                       </div>
@@ -235,7 +231,7 @@ export default function MessagesPage() {
                           {conv.last_message?.substring(0, 40)}{conv.last_message?.length > 40 ? '...' : ''}
                         </span>
                         {conv.unread > 0 && (
-                          <span style={{ background: '#1a7a4a', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, flexShrink: 0 }}>
+                          <span style={{ background: '#e63946', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, flexShrink: 0 }}>
                             {conv.unread}
                           </span>
                         )}
@@ -247,7 +243,6 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* CHAT */}
           <div className="chat-panel" style={{ background: 'white', borderRadius: '14px', border: '1px solid #e8ede9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {!activeConv ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7c6e', flexDirection: 'column', gap: '12px' }}>
@@ -256,25 +251,23 @@ export default function MessagesPage() {
               </div>
             ) : (
               <>
-                {/* Header chat */}
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f4f1', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '38px', height: '38px', borderRadius: '9px', background: '#f5f7f5', border: '1px solid #e8ede9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>
                     {activeConv.ad?.images?.[0] ? <img src={activeConv.ad.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📦'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.9rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {activeConv.ad?.title || 'Annonce supprimee'}
+                      {activeConv.ad?.title || 'Annonce supprimée'}
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>{activeConv.other_email}</div>
                   </div>
                   {activeConv.ad_id && (
                     <a href={'/annonce/' + activeConv.ad_id} style={{ padding: '5px 10px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#1a7a4a', textDecoration: 'none', flexShrink: 0 }}>
-                      Voir l annonce →
+                      Voir l'annonce →
                     </a>
                   )}
                 </div>
 
-                {/* Messages */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {messages.map((msg, i) => {
                     const isMe = msg.sender_id === user.id
@@ -291,7 +284,7 @@ export default function MessagesPage() {
                           {parts.map((part, j) =>
                             part.startsWith('https://sokodeal.app/annonce/') ? (
                               <a key={j} href={part} style={{ color: isMe ? '#a7f3d0' : '#1a7a4a', fontWeight: 600, display: 'block', marginTop: '4px', fontSize: '0.8rem' }}>
-                                🔗 Voir l annonce →
+                                🔗 Voir l'annonce →
                               </a>
                             ) : (
                               <span key={j}>{part}</span>
@@ -307,7 +300,6 @@ export default function MessagesPage() {
                   <div ref={bottomRef} />
                 </div>
 
-                {/* Input */}
                 <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f4f1', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                   <textarea
                     value={newMessage}
