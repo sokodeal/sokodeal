@@ -199,19 +199,12 @@ export default function AnnonceDetail() {
                       </button>
 
                       
-                        href={`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + getShareUrl())}`}
-                        target="_blank" rel="noopener noreferrer"
-                        onClick={() => setShowShareMenu(false)}
-                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
-                        💬 WhatsApp
-                      </a>
-
-                      
-                        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`}
-                        target="_blank" rel="noopener noreferrer"
-                        onClick={() => setShowShareMenu(false)}
-                        style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
-                        📘 Facebook
+                       href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`}
+  target="_blank" rel="noopener noreferrer"
+  onClick={() => setShowShareMenu(false)}
+  style={{width:'100%', padding:'9px 12px', background:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
+  📘 Facebook
+</a>
                       </a>
 
                       
