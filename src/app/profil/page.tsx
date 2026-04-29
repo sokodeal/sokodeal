@@ -356,11 +356,14 @@ export default function ProfilPage() {
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'0.9rem', marginBottom:'8px'}}>{Number(ad.price).toLocaleString()} RWF</div>
                       <div style={{display:'flex', gap:'5px'}}>
                         <button onClick={() => window.location.href='/annonce/' + ad.id} style={{flex:1, padding:'6px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', cursor:'pointer'}}>
-                          👁️ Voir
-                        </button>
-                        <button onClick={() => handleDeleteAd(ad.id)} style={{flex:1, padding:'6px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#c0392b', cursor:'pointer'}}>
-                          🗑️ Supprimer
-                        </button>
+  👁️ Voir
+</button>
+<button onClick={() => window.location.href='/modifier/' + ad.id} style={{flex:1, padding:'6px', background:'#e8f5ee', border:'1px solid #b7dfca', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', cursor:'pointer'}}>
+  ✏️ Modifier
+</button>
+<button onClick={() => handleDeleteAd(ad.id)} style={{flex:1, padding:'6px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#c0392b', cursor:'pointer'}}>
+  🗑️ Supprimer
+</button>
                       </div>
                     </div>
                   </div>
