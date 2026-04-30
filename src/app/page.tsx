@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FavoriteButton from '@/components/FavoriteButton'
+import { useUnreadCount } from '@/hooks/useUnreadCount'
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
@@ -16,7 +17,7 @@ export default function Home() {
   const [filterPriceMax, setFilterPriceMax] = useState('')
   const [sortBy, setSortBy] = useState('recent')
   const [showFilters, setShowFilters] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { unreadCount } = useUnreadCount()
   const [toast, setToast] = useState<any>(null)
   const [profileResults, setProfileResults] = useState<any[]>([])
   const [searchingProfiles, setSearchingProfiles] = useState(false)
