@@ -4,6 +4,65 @@ import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Header from '@/components/Header'
 
+function ReportButton({ adId, userId }: { adId: string, userId?: string }) {
+  const [showForm, setShowForm] = useState(false)
+  const [reason, setReason] = useState('')
+  const [sending, setSending] = useState(false)
+  const [done, setDone] = useState(false)
+
+  const handleReport = async () => {
+    if (!userId) { window.location.href = '/auth?mode=login'; return }
+    if (!reason) return
+    setSending(true)
+    await supabase.from('reports').insert([{
+      ad_id: adId,
+      reporter_id: userId,
+      reason,
+    }])
+    setSending(false)
+    setDone(true)
+    setShowForm(false)
+  }
+
+  if (done) return (
+    <div style={{background:'#e8f5ee', borderRadius:'12px', padding:'12px', border:'1px solid #b7dfca', marginBottom:'12px', textAlign:'center', fontSize:'0.82rem', color:'#1a7a4a', fontWeight:600}}>
+      Signalement envoye. Merci !
+    </div>
+  )
+
+  return (
+    <div style={{marginBottom:'12px'}}>
+      {!showForm ? (
+        <button onClick={() => setShowForm(true)} style={{width:'100%', padding:'10px', background:'transparent', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color:'#6b7c6e', cursor:'pointer'}}>
+          Signaler cette annonce
+        </button>
+      ) : (
+        <div style={{background:'#fff1f0', borderRadius:'12px', padding:'14px', border:'1px solid #ffd6d6'}}>
+          <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#c0392b', marginBottom:'10px'}}>Signaler cette annonce</p>
+          <select value={reason} onChange={e => setReason(e.target.value)}
+            style={{width:'100%', padding:'9px 12px', border:'1px solid #ffd6d6', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', color:'#111a14', background:'white', marginBottom:'10px'}}>
+            <option value="">Choisir une raison...</option>
+            <option value="arnaque">Arnaque / Fraude</option>
+            <option value="contenu-inapproprie">Contenu inapproprie</option>
+            <option value="faux-produit">Faux produit</option>
+            <option value="prix-abusif">Prix abusif</option>
+            <option value="doublon">Annonce en doublon</option>
+            <option value="autre">Autre</option>
+          </select>
+          <div style={{display:'flex', gap:'8px'}}>
+            <button onClick={handleReport} disabled={sending || !reason} style={{flex:1, padding:'9px', background: !reason ? '#ccc' : '#c0392b', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor: !reason ? 'not-allowed' : 'pointer'}}>
+              {sending ? 'Envoi...' : 'Envoyer'}
+            </button>
+            <button onClick={() => setShowForm(false)} style={{padding:'9px 14px', background:'transparent', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color:'#6b7c6e', cursor:'pointer'}}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AnnonceDetail() {
   const { id } = useParams()
   const [ad, setAd] = useState<any>(null)
@@ -131,7 +190,7 @@ export default function AnnonceDetail() {
           <span>/</span>
           <span>{catLabel[ad.category] || ad.category}</span>
           <span>/</span>
-          <span style={{color:'#111a14', fontWeight:600}}>{ad.title}</span>
+          <span style={{color:'#111a14', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'200px'}}>{ad.title}</span>
         </div>
       </div>
 
@@ -150,14 +209,12 @@ export default function AnnonceDetail() {
               </div>
               <div style={{position:'absolute', top:'12px', right:'12px'}} onClick={e => e.stopPropagation()}>
                 <div style={{position:'relative'}}>
-                  <button
-                    onClick={() => setShowShareMenu(!showShareMenu)}
+                  <button onClick={() => setShowShareMenu(!showShareMenu)}
                     style={{background:'white', border:'1px solid #e8ede9', borderRadius:'8px', padding:'6px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', color:'#111a14', display:'flex', alignItems:'center', gap:'5px'}}>
                     {shared ? 'Copie !' : 'Partager'}
                   </button>
                   {showShareMenu && (
-                    <div
-                      style={{position:'absolute', top:'36px', right:0, background:'white', borderRadius:'10px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', padding:'6px', minWidth:'180px', zIndex:200}}
+                    <div style={{position:'absolute', top:'36px', right:0, background:'white', borderRadius:'10px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', padding:'6px', minWidth:'180px', zIndex:200}}
                       onClick={e => e.stopPropagation()}>
                       {canNativeShare && (
                         <button onClick={handleNativeShare} style={{width:'100%', padding:'9px 12px', background:'none', border:'none', borderRadius:'7px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', color:'#111a14', textAlign:'left'}}>
@@ -227,24 +284,24 @@ export default function AnnonceDetail() {
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Details</h2>
             <div className="detail-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
               {[
-    { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
-    { label:'Prix', value: Number(ad.price).toLocaleString() + ' RWF', icon:'💰' },
-    { label:'Ville', value: ad.province || '-', icon:'🗺️' },
-    { label:'District', value: ad.district || '-', icon:'📍' },
-    { label:'Publie le', value: new Date(ad.created_at).toLocaleDateString('fr-FR'), icon:'📅' },
-    { label:'Statut', value: ad.is_active ? 'Active' : 'Inactive', icon:'🔘' },
-    ...(ad.immo_type ? [{ label:'Type', value: ad.immo_type, icon:'🏡' }] : []),
-    ...(ad.surface ? [{ label:'Surface', value: ad.surface + ' m²', icon:'📐' }] : []),
-    ...(ad.chambres ? [{ label:'Chambres', value: ad.chambres, icon:'🛏️' }] : []),
-    ...(ad.salles_de_bain ? [{ label:'Salles de bain', value: ad.salles_de_bain, icon:'🚿' }] : []),
-    ...(ad.etage ? [{ label:'Etage', value: ad.etage, icon:'🏢' }] : []),
-    ...(ad.etat ? [{ label:'Etat', value: ad.etat === 'neuf' ? 'Neuf' : ad.etat === 'bon-etat' ? 'Bon etat' : 'A renover', icon:'✨' }] : []),
-    ...(ad.meuble ? [{ label:'Meuble', value: 'Oui', icon:'🛋️' }] : []),
-    ...(ad.charges_incluses ? [{ label:'Charges', value: 'Incluses', icon:'💡' }] : []),
-  ].map((item, i) => (
+                { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
+                { label:'Prix', value: Number(ad.price).toLocaleString() + ' RWF', icon:'💰' },
+                { label:'Ville', value: ad.province || '-', icon:'🗺️' },
+                { label:'District', value: ad.district || '-', icon:'📍' },
+                { label:'Publie le', value: new Date(ad.created_at).toLocaleDateString('fr-FR'), icon:'📅' },
+                { label:'Statut', value: ad.is_active ? 'Active' : 'Inactive', icon:'🔘' },
+                ...(ad.immo_type ? [{ label:'Type', value: ad.immo_type, icon:'🏡' }] : []),
+                ...(ad.surface ? [{ label:'Surface', value: ad.surface + ' m²', icon:'📐' }] : []),
+                ...(ad.chambres ? [{ label:'Chambres', value: ad.chambres, icon:'🛏️' }] : []),
+                ...(ad.salles_de_bain ? [{ label:'Salles de bain', value: ad.salles_de_bain, icon:'🚿' }] : []),
+                ...(ad.etage ? [{ label:'Etage', value: ad.etage, icon:'🏢' }] : []),
+                ...(ad.etat ? [{ label:'Etat', value: ad.etat === 'neuf' ? 'Neuf' : ad.etat === 'bon-etat' ? 'Bon etat' : 'A renover', icon:'✨' }] : []),
+                ...(ad.meuble ? [{ label:'Meuble', value: 'Oui', icon:'🛋️' }] : []),
+                ...(ad.charges_incluses ? [{ label:'Charges', value: 'Incluses', icon:'💡' }] : []),
+              ].map((item, i) => (
                 <div key={i} style={{background:'#f5f7f5', borderRadius:'9px', padding:'11px 13px', border:'1px solid #e8ede9'}}>
                   <div style={{fontSize:'0.7rem', color:'#6b7c6e', fontWeight:600, marginBottom:'3px', textTransform:'uppercase'}}>{item.icon} {item.label}</div>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{item.value}</div>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{String(item.value)}</div>
                 </div>
               ))}
             </div>
@@ -307,6 +364,8 @@ export default function AnnonceDetail() {
               </>
             )}
           </div>
+
+          <ReportButton adId={ad.id} userId={user?.id} />
 
           <div style={{background:'#fffbeb', borderRadius:'12px', padding:'14px', border:'1px solid #fde68a'}}>
             <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'8px', color:'#78350f', textTransform:'uppercase', letterSpacing:'0.04em'}}>
