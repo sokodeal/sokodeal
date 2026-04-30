@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FavoriteButton from '@/components/FavoriteButton'
 import { useUnreadCount } from '@/hooks/useUnreadCount'
+import { SUBCATEGORIES, MAIN_CATEGORIES } from '@/lib/categories'
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
@@ -12,6 +13,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
+  const [filterSubcat, setFilterSubcat] = useState('')
   const [filterVille, setFilterVille] = useState('')
   const [filterPriceMin, setFilterPriceMin] = useState('')
   const [filterPriceMax, setFilterPriceMax] = useState('')
@@ -29,30 +31,20 @@ export default function Home() {
     'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
   ]
 
-  const categories = [
-    { value:'immo-vente', label:'🏡 Immobilier Vente' },
-    { value:'immo-location', label:'🏢 Immobilier Location' },
-    { value:'immo-terrain', label:'🌿 Terrain' },
-    { value:'voiture', label:'🚗 Voitures' },
-    { value:'moto', label:'🛵 Motos' },
-    { value:'electronique', label:'📱 Electronique' },
-    { value:'mode', label:'👗 Mode et Beaute' },
-    { value:'maison', label:'🛋️ Maison et Jardin' },
-    { value:'emploi', label:'💼 Emploi' },
-    { value:'animaux', label:'🐄 Animaux' },
-    { value:'services', label:'🏗️ Services' },
-    { value:'agriculture', label:'🌾 Agriculture' },
-    { value:'materiaux', label:'🧱 Materiaux Construction' },
-    { value:'sante', label:'💊 Sante et Beaute' },
-    { value:'sport', label:'⚽ Sport et Loisirs' },
-    { value:'education', label:'📚 Education' },
-  ]
-
   const catEmoji: any = {
     'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿',
     'voiture':'🚗','moto':'🛵','electronique':'📱','mode':'👗',
     'maison':'🛋️','emploi':'💼','animaux':'🐄','services':'🏗️',
     'agriculture':'🌾','materiaux':'🧱','sante':'💊','sport':'⚽','education':'📚'
+  }
+
+  // Sous-catégories disponibles pour le filtre actif
+  const subcats = SUBCATEGORIES[filterCat] || []
+
+  const handleNavCat = (cat: string) => {
+    setFilterCat(cat)
+    setFilterSubcat('')
+    setActiveSection('main')
   }
 
   useEffect(() => {
@@ -84,8 +76,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return
-    const channelName = 'notifs-' + user.id.slice(0, 8)
-    const ch = supabase.channel(channelName)
+    const ch = supabase.channel('notifs-' + user.id.slice(0, 8))
     ch.on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'messages',
       filter: 'receiver_id=eq.' + user.id
@@ -98,21 +89,14 @@ export default function Home() {
 
   const saveToHistory = async (q: string, cat: string, ville: string) => {
     if (!user || (!q && !cat && !ville)) return
-    await supabase.from('search_history').insert([{
-      user_id: user.id,
-      query: q || null,
-      category: cat || null,
-      province: ville || null,
-    }])
+    await supabase.from('search_history').insert([{ user_id: user.id, query: q || null, category: cat || null, province: ville || null }])
   }
 
   const handleSaveSearch = async () => {
     if (!user) { window.location.href = '/auth?mode=login'; return }
     if (!search && !filterCat && !filterVille && !filterPriceMin && !filterPriceMax) return
     const { error } = await supabase.from('saved_searches').insert([{
-      user_id: user.id,
-      query: search || null,
-      category: filterCat || null,
+      user_id: user.id, query: search || null, category: filterCat || null,
       province: filterVille || null,
       price_min: filterPriceMin ? parseInt(filterPriceMin) : null,
       price_max: filterPriceMax ? parseInt(filterPriceMax) : null,
@@ -134,37 +118,51 @@ export default function Home() {
           setProfileResults(data || [])
           setSearchingProfiles(false)
         })
-      } else {
-        setProfileResults([])
-      }
+      } else { setProfileResults([]) }
       return
     }
 
     setProfileResults([])
     let result = [...ads]
+
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter(ad => ad.title?.toLowerCase().includes(q) || ad.description?.toLowerCase().includes(q) || ad.category?.toLowerCase().includes(q))
     }
-    if (filterCat) result = result.filter(ad => ad.category === filterCat)
+
+    // Filtre catégorie — immo regroupe les 3
+    if (filterCat) {
+      if (filterCat === 'immo') {
+        result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
+      } else {
+        result = result.filter(ad => ad.category === filterCat)
+      }
+    }
+
+    // ✅ Filtre sous-catégorie
+    if (filterSubcat) {
+      result = result.filter(ad => ad.subcategory === filterSubcat)
+    }
+
     if (filterVille) result = result.filter(ad => ad.province?.toLowerCase().includes(filterVille.toLowerCase()) || ad.district?.toLowerCase().includes(filterVille.toLowerCase()))
     if (filterPriceMin) result = result.filter(ad => ad.price >= parseInt(filterPriceMin))
     if (filterPriceMax) result = result.filter(ad => ad.price <= parseInt(filterPriceMax))
+
     if (sortBy === 'recent') result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    else if (sortBy === 'ancien') result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     else if (sortBy === 'moins-cher') result.sort((a, b) => a.price - b.price)
     else if (sortBy === 'plus-cher') result.sort((a, b) => b.price - a.price)
+
     setFiltered(result)
 
     const timer = setTimeout(() => {
-      if (search.trim() || filterCat || filterVille) {
-        saveToHistory(search.trim(), filterCat, filterVille)
-      }
+      if (search.trim() || filterCat || filterVille) saveToHistory(search.trim(), filterCat, filterVille)
     }, 1500)
     return () => clearTimeout(timer)
-  }, [search, filterCat, filterVille, filterPriceMin, filterPriceMax, sortBy, ads])
+  }, [search, filterCat, filterSubcat, filterVille, filterPriceMin, filterPriceMax, sortBy, ads])
 
   const resetFilters = () => {
-    setSearch(''); setFilterCat(''); setFilterVille('')
+    setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterVille('')
     setFilterPriceMin(''); setFilterPriceMax(''); setSortBy('recent')
     setProfileResults([])
   }
@@ -185,8 +183,8 @@ export default function Home() {
   return (
     <>
       <style>{`
-  * { box-sizing: border-box; }
-  html, body { overflow-x: hidden; max-width: 100vw; }
+        * { box-sizing: border-box; }
+        html, body { overflow-x: hidden; max-width: 100vw; }
         @media (max-width: 768px) {
           .hero-title { font-size: 1.7rem !important; }
           .ads-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
@@ -194,7 +192,7 @@ export default function Home() {
           .btn-signup { display: none !important; }
           .header-inner { padding: 0 4% !important; height: 56px !important; }
           .deposer-btn { padding: 6px 8px !important; font-size: 0.75rem !important; }
-.deposer-text { display: none !important; }
+          .deposer-text { display: none !important; }
           .hero-section { padding: 36px 4% 32px !important; }
           .mon-compte-label { display: none !important; }
           .search-bar { display: none !important; }
@@ -210,6 +208,8 @@ export default function Home() {
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         .profile-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
         .profile-card { transition: box-shadow 0.18s, transform 0.18s; }
+        .nav-cat { transition: all 0.15s; }
+        .nav-cat:hover { color: #1a7a4a !important; }
       `}</style>
 
       {toast && (
@@ -217,11 +217,9 @@ export default function Home() {
           <span style={{fontSize:'1.2rem'}}>{toast.icon}</span>
           <div>
             <div style={{fontWeight:700, marginBottom:'4px'}}>{toast.text}</div>
-            <button onClick={() => window.location.href='/messages'} style={{background:'#f5a623', border:'none', borderRadius:'6px', padding:'3px 10px', fontSize:'0.75rem', fontWeight:700, color:'#111', cursor:'pointer'}}>
-              Voir
-            </button>
+            <button onClick={() => window.location.href='/messages'} style={{background:'#f5a623', border:'none', borderRadius:'6px', padding:'3px 10px', fontSize:'0.75rem', fontWeight:700, color:'#111', cursor:'pointer'}}>Voir</button>
           </div>
-          <button onClick={() => setToast(null)} style={{background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:'1rem', padding:'0 4px'}}>x</button>
+          <button onClick={() => setToast(null)} style={{background:'transparent', border:'none', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:'1rem', padding:'0 4px'}}>×</button>
         </div>
       )}
 
@@ -262,12 +260,8 @@ export default function Home() {
               </>
             ) : (
               <>
-                <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'8px 16px', border:'1px solid #e8ede9', borderRadius:'9px', color:'#111a14', background:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>
-                  Connexion
-                </button>
-                <button className="btn-signup" onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 16px', border:'none', borderRadius:'9px', color:'white', background:'#1a7a4a', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor:'pointer'}}>
-                  S inscrire
-                </button>
+                <button onClick={() => window.location.href='/auth?mode=login'} style={{padding:'8px 16px', border:'1px solid #e8ede9', borderRadius:'9px', color:'#111a14', background:'white', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', cursor:'pointer'}}>Connexion</button>
+                <button className="btn-signup" onClick={() => window.location.href='/auth?mode=signup'} style={{padding:'8px 16px', border:'none', borderRadius:'9px', color:'white', background:'#1a7a4a', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor:'pointer'}}>S inscrire</button>
               </>
             )}
             <button className="deposer-btn" onClick={() => window.location.href='/publier'} style={{padding:'8px 18px', background:'#f5a623', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14', cursor:'pointer', whiteSpace:'nowrap'}}>
@@ -276,50 +270,42 @@ export default function Home() {
           </div>
         </div>
 
+        {/* ✅ Navbar catégories */}
         <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto'}}>
-          {[
-            {cat:'', label:'Tout', href:''},
-            {cat:'immo-vente', label:'🏡 Immo', href:'/immo'},
-            {cat:'voiture', label:'🚗 Autos', href:''},
-            {cat:'moto', label:'🛵 Motos', href:''},
-            {cat:'electronique', label:'📱 Tech', href:''},
-            {cat:'mode', label:'👗 Mode', href:''},
-            {cat:'agriculture', label:'🌾 Agri', href:''},
-            {cat:'materiaux', label:'🧱 BTP', href:''},
-            {cat:'sante', label:'💊 Sante', href:''},
-            {cat:'sport', label:'⚽ Sport', href:''},
-            {cat:'education', label:'📚 Educ', href:''},
-            {cat:'animaux', label:'🐄 Animaux', href:''},
-            {cat:'services', label:'🏗️ Services', href:''},
-          ].map((item, i) => (
-            <a key={i}
-              href={item.href || '#'}
-              onClick={e => { if (!item.href) { e.preventDefault(); setActiveSection('main'); setFilterCat(item.cat) } }}
-              style={{
-                display:'flex', alignItems:'center', padding:'9px 14px',
-                color: filterCat === item.cat && !item.href ? '#1a7a4a' : '#6b7c6e',
-                textDecoration:'none', fontSize:'0.82rem',
-                fontWeight: filterCat === item.cat && !item.href ? 700 : 400,
-                whiteSpace:'nowrap',
-                borderBottom: filterCat === item.cat && !item.href ? '2px solid #f5a623' : '2px solid transparent',
-                transition:'all 0.15s'
-              }}>{item.label}</a>
+          <a href="#" className="nav-cat" onClick={e => { e.preventDefault(); handleNavCat('') }}
+            style={{display:'flex', alignItems:'center', padding:'9px 14px', color: filterCat === '' ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: filterCat === '' ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterCat === '' ? '2px solid #f5a623' : '2px solid transparent'}}>
+            Tout
+          </a>
+          {MAIN_CATEGORIES.map((item) => (
+            <a key={item.value} href="#" className="nav-cat"
+              onClick={e => { e.preventDefault(); handleNavCat(item.value) }}
+              style={{display:'flex', alignItems:'center', padding:'9px 14px', color: filterCat === item.value ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: filterCat === item.value ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterCat === item.value ? '2px solid #f5a623' : '2px solid transparent'}}>
+              {item.label}
+            </a>
           ))}
-          <a href="#" onClick={e => { e.preventDefault(); setActiveSection('jobs') }} style={{
-            display:'flex', alignItems:'center', padding:'9px 14px',
-            color: activeSection === 'jobs' ? '#1a7a4a' : '#6b7c6e',
-            textDecoration:'none', fontSize:'0.82rem', fontWeight: activeSection === 'jobs' ? 700 : 400,
-            whiteSpace:'nowrap',
-            borderBottom: activeSection === 'jobs' ? '2px solid #f5a623' : '2px solid transparent'
-          }}>💼 Jobs</a>
+          <a href="#" className="nav-cat" onClick={e => { e.preventDefault(); setActiveSection('jobs') }}
+            style={{display:'flex', alignItems:'center', padding:'9px 14px', color: activeSection === 'jobs' ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: activeSection === 'jobs' ? 700 : 400, whiteSpace:'nowrap', borderBottom: activeSection === 'jobs' ? '2px solid #f5a623' : '2px solid transparent'}}>
+            💼 Jobs
+          </a>
         </div>
+
+        {/* ✅ Barre sous-catégories — apparaît quand une catégorie avec subcats est sélectionnée */}
+        {subcats.length > 0 && (
+          <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto', background:'#fafafa'}}>
+            {subcats.map((sub) => (
+              <a key={sub.value} href="#" className="nav-cat"
+                onClick={e => { e.preventDefault(); setFilterSubcat(sub.value) }}
+                style={{display:'flex', alignItems:'center', padding:'7px 12px', color: filterSubcat === sub.value ? '#0f5233' : '#6b7c6e', textDecoration:'none', fontSize:'0.78rem', fontWeight: filterSubcat === sub.value ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterSubcat === sub.value ? '2px solid #1a7a4a' : '2px solid transparent'}}>
+                {sub.label}
+              </a>
+            ))}
+          </div>
+        )}
       </header>
 
       {search.startsWith('@') && (
         <div style={{maxWidth:'1300px', margin:'0 auto', padding:'24px 5%'}}>
-          <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px', color:'#111a14'}}>
-            Profils pour "{search}"
-          </h2>
+          <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px', color:'#111a14'}}>Profils pour "{search}"</h2>
           {searchingProfiles ? (
             <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Recherche en cours...</p>
           ) : profileResults.length === 0 ? (
@@ -337,13 +323,11 @@ export default function Home() {
                     {(profile.full_name || profile.username || 'U')[0].toUpperCase()}
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', color:'#111a14', marginBottom:'3px'}}>
-                      {profile.full_name || '@' + profile.username}
-                    </div>
+                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', color:'#111a14', marginBottom:'3px'}}>{profile.full_name || '@' + profile.username}</div>
                     <div style={{fontSize:'0.78rem', color:'#1a7a4a', fontWeight:600}}>@{profile.username}</div>
                     {profile.bio && <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginTop:'3px'}}>{profile.bio}</div>}
                   </div>
-                  <span style={{fontSize:'0.78rem', color:'#6b7c6e', fontWeight:600, flexShrink:0}}>Voir le profil</span>
+                  <span style={{fontSize:'0.78rem', color:'#6b7c6e', fontWeight:600, flexShrink:0}}>Voir le profil →</span>
                 </div>
               ))}
             </div>
@@ -354,15 +338,11 @@ export default function Home() {
       {!search.startsWith('@') && activeSection === 'main' && !search && !filterCat && (
         <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'52px 5% 44px'}}>
           <div style={{maxWidth:'1300px', margin:'0 auto'}}>
-            <p style={{color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'12px'}}>
-              Marketplace N1 d Afrique
-            </p>
+            <p style={{color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'12px'}}>Marketplace N1 d Afrique</p>
             <h1 className="hero-title" style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'2.4rem', color:'white', lineHeight:1.15, marginBottom:'14px'}}>
               Achetez et vendez partout en Afrique
             </h1>
-            <p style={{color:'rgba(255,255,255,0.65)', fontSize:'0.95rem', marginBottom:'32px', maxWidth:'420px', lineHeight:1.6}}>
-              Immobilier, vehicules, electronique et bien plus.
-            </p>
+            <p style={{color:'rgba(255,255,255,0.65)', fontSize:'0.95rem', marginBottom:'32px', maxWidth:'420px', lineHeight:1.6}}>Immobilier, vehicules, electronique et bien plus.</p>
             <div style={{display:'flex', gap:'28px'}}>
               {[['48K+','Annonces'],['120K+','Membres'],['10+','Pays']].map(([n,l]) => (
                 <div key={l}>
@@ -391,19 +371,13 @@ export default function Home() {
               </div>
               <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
                 {hasFilters && (
-                  <button className="save-search-btn" onClick={handleSaveSearch} style={{
-                    padding:'7px 12px',
-                    background: searchSaved ? '#e8f5ee' : '#fffbeb',
-                    border:'1px solid ' + (searchSaved ? '#b7dfca' : '#fde68a'),
-                    borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600,
-                    fontSize:'0.78rem', color: searchSaved ? '#1a7a4a' : '#78350f',
-                    cursor:'pointer', whiteSpace:'nowrap'
-                  }}>
+                  <button className="save-search-btn" onClick={handleSaveSearch} style={{padding:'7px 12px', background: searchSaved ? '#e8f5ee' : '#fffbeb', border:'1px solid ' + (searchSaved ? '#b7dfca' : '#fde68a'), borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', color: searchSaved ? '#1a7a4a' : '#78350f', cursor:'pointer', whiteSpace:'nowrap'}}>
                     {searchSaved ? 'Alerte creee !' : 'Creer une alerte'}
                   </button>
                 )}
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{padding:'7px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
                   <option value="recent">Plus recent</option>
+                  <option value="ancien">Plus ancien</option>
                   <option value="moins-cher">Moins cher</option>
                   <option value="plus-cher">Plus cher</option>
                 </select>
@@ -415,17 +389,48 @@ export default function Home() {
 
             {showFilters && (
               <div className="filters-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
-                {[
-                  { label:'Categorie', el: <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}><option value="">Toutes</option>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select> },
-                  { label:'Ville', el: <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}><option value="">Toutes</option>{villes.map(v => <option key={v} value={v}>{v}</option>)}</select> },
-                  { label:'Prix min (RWF)', el: <input type="number" placeholder="0" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white'}}/> },
-                  { label:'Prix max (RWF)', el: <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white'}}/> },
-                ].map((f, i) => (
-                  <div key={i}>
-                    <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>{f.label}</label>
-                    {f.el}
+                <div>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Categorie</label>
+                  <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setFilterSubcat('') }} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
+                    <option value="">Toutes</option>
+                    <optgroup label="🏡 Immobilier">
+                      <option value="immo">Tout l immobilier</option>
+                      <option value="immo-vente">↳ Vente</option>
+                      <option value="immo-location">↳ Location</option>
+                      <option value="immo-terrain">↳ Terrain</option>
+                    </optgroup>
+                    {MAIN_CATEGORIES.filter(c => c.value !== 'immo').map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* ✅ Sous-catégorie dans les filtres avancés */}
+                <div>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Sous-categorie</label>
+                  <select value={filterSubcat} onChange={e => setFilterSubcat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}} disabled={subcats.length === 0}>
+                    <option value="">{subcats.length === 0 ? 'Choisir une catégorie d\'abord' : 'Toutes'}</option>
+                    {subcats.filter(s => s.value !== '').map(s => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Ville</label>
+                  <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
+                    <option value="">Toutes</option>
+                    {villes.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Prix (RWF)</label>
+                  <div style={{display:'flex', gap:'6px'}}>
+                    <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'50%', padding:'8px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
+                    <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'50%', padding:'8px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
                   </div>
-                ))}
+                </div>
               </div>
             )}
           </div>
@@ -462,17 +467,15 @@ export default function Home() {
                     </div>
                   </div>
                   <div style={{padding:'14px'}}>
-                    <div style={{fontSize:'0.66rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'5px'}}>{ad.category}</div>
+                    <div style={{fontSize:'0.66rem', fontWeight:600, color:'#1a7a4a', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'5px'}}>
+                      {ad.subcategory ? ad.subcategory : ad.category}
+                    </div>
                     <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.93rem', marginBottom:'5px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
                     <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#0f5233', marginBottom:'8px'}}>
                       {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600}}>RWF</span>
                     </div>
                     {ad.province && <div style={{fontSize:'0.72rem', color:'#6b7c6e', marginBottom:'10px'}}>📍 {ad.province}</div>}
-                    <button onClick={e => { e.stopPropagation(); window.location.href='/annonce/' + ad.id }} style={{
-                      width:'100%', padding:'8px', background:'#f5f7f5', color:'#0f5233',
-                      border:'1px solid #d4e6da', borderRadius:'8px', fontFamily:'Syne,sans-serif',
-                      fontWeight:700, fontSize:'0.8rem', cursor:'pointer'
-                    }}>
+                    <button onClick={e => { e.stopPropagation(); window.location.href='/annonce/' + ad.id }} style={{width:'100%', padding:'8px', background:'#f5f7f5', color:'#0f5233', border:'1px solid #d4e6da', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.8rem', cursor:'pointer'}}>
                       Voir l annonce
                     </button>
                   </div>
@@ -494,7 +497,7 @@ export default function Home() {
             <div key={i} style={{background:'white', borderRadius:'12px', padding:'18px 20px', border:'1px solid #e8ede9', marginBottom:'10px', display:'flex', alignItems:'center', gap:'14px', cursor:'pointer'}}>
               <div style={{fontSize:'1.6rem', flexShrink:0}}>{job.co}</div>
               <div style={{flex:1, minWidth:0}}>
-                <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.92rem', marginBottom:'3px', color:'#111a14', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{job.title}</div>
+                <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.92rem', marginBottom:'3px', color:'#111a14'}}>{job.title}</div>
                 <div style={{fontSize:'0.8rem', color:'#1a7a4a', fontWeight:600, marginBottom:'2px'}}>{job.company}</div>
                 <div style={{fontSize:'0.75rem', color:'#6b7c6e'}}>📍 {job.loc} · {job.type}</div>
               </div>
@@ -510,12 +513,8 @@ export default function Home() {
       <footer style={{background:'#0f5233', color:'rgba(255,255,255,0.6)', padding:'36px 5%', marginTop:'40px'}}>
         <div style={{maxWidth:'1300px', margin:'0 auto', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'16px', alignItems:'center'}}>
           <div>
-            <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.15rem', color:'white', marginBottom:'4px'}}>
-              Soko<span style={{color:'#f5a623'}}>Deal</span>
-            </div>
-            <p style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.4)', maxWidth:'240px', lineHeight:1.6}}>
-              La premiere plateforme d annonces d Afrique.
-            </p>
+            <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.15rem', color:'white', marginBottom:'4px'}}>Soko<span style={{color:'#f5a623'}}>Deal</span></div>
+            <p style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.4)', maxWidth:'240px', lineHeight:1.6}}>La premiere plateforme d annonces d Afrique.</p>
           </div>
           <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
             <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>

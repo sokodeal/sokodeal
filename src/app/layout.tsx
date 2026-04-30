@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script"; // On ajoute cet outil spécial
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,15 +43,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/manifest.json"/>
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-        <script dangerouslySetInnerHTML={{__html: `
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-              navigator.serviceWorker.register('/sw.js')
-            })
-          }
-        `}}/>
       </head>
-      <body style={{margin:0, padding:0, background:'#f5f7f5', overflowX:'hidden', maxWidth:'100vw'}}>{children}</body>
+      <body style={{margin:0, padding:0, background:'#f5f7f5', overflowX:'hidden', maxWidth:'100vw'}}>
+        {children}
+        
+        {/* On a déplacé le script ici avec le bon outil de Next.js */}
+        <Script id="register-sw" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+              });
+            }
+          `}
+        </Script>
+      </body>
     </html>
   )
 }

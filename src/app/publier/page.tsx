@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { SUBCATEGORIES, PUBLISH_CATEGORIES } from '@/lib/categories'
 
 const INDICATIFS = [
   { code: '+250', flag: '🇷🇼', pays: 'Rwanda' },
@@ -21,7 +22,7 @@ export default function PublierPage() {
   const [success, setSuccess] = useState(false)
   const [photos, setPhotos] = useState<File[]>([])
   const [form, setForm] = useState({
-    title: '', category: '', price: '', description: '',
+    title: '', category: '', subcategory: '', price: '', description: '',
     ville: '', district: '',
     phone: '', phone_indicatif: '+250',
     whatsapp: '', whatsapp_indicatif: '+250',
@@ -29,16 +30,18 @@ export default function PublierPage() {
     hide_phone: false,
   })
   const [immoForm, setImmoForm] = useState({
-    immo_type: '',
-    surface: '',
-    chambres: '',
-    salles_de_bain: '',
-    etage: '',
-    meuble: false,
-    etat: '',
-    charges_incluses: false,
+    immo_type: '', surface: '', surface_terrain: '',
+    chambres: '', salles_de_bain: '', etage: '',
+    meuble: false, etat: '', charges_incluses: false,
   })
   const [msg, setMsg] = useState('')
+
+  // Sous-catégories disponibles pour la catégorie choisie
+  const subcats = SUBCATEGORIES[form.category] || []
+
+  const handleCategoryChange = (cat: string) => {
+    setForm({ ...form, category: cat, subcategory: '' })
+  }
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || [])
@@ -103,6 +106,7 @@ export default function PublierPage() {
     const adData: any = {
       title: form.title,
       category: form.category,
+      subcategory: form.subcategory || null,
       price: parseFloat(form.price),
       description: form.description,
       province: form.ville,
@@ -115,10 +119,10 @@ export default function PublierPage() {
       user_id: user.id,
     }
 
-    // Ajouter champs immo si catégorie immo
     if (isImmo(form.category)) {
       if (immoForm.immo_type) adData.immo_type = immoForm.immo_type
       if (immoForm.surface) adData.surface = parseInt(immoForm.surface)
+      if (immoForm.surface_terrain) adData.surface_terrain = parseInt(immoForm.surface_terrain)
       if (immoForm.chambres) adData.chambres = parseInt(immoForm.chambres)
       if (immoForm.salles_de_bain) adData.salles_de_bain = parseInt(immoForm.salles_de_bain)
       if (immoForm.etage) adData.etage = parseInt(immoForm.etage)
@@ -133,10 +137,15 @@ export default function PublierPage() {
   }
 
   const inp: React.CSSProperties = {
-    width:'100%', padding:'11px 14px', border:'1px solid #e8ede9',
-    borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.92rem',
-    outline:'none', background:'#fafaf9', marginBottom:'12px', display:'block',
-    boxSizing:'border-box', color:'#111a14'
+    width: '100%', padding: '11px 14px', border: '1px solid #e8ede9',
+    borderRadius: '9px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.92rem',
+    outline: 'none', background: '#fafaf9', marginBottom: '12px', display: 'block',
+    boxSizing: 'border-box', color: '#111a14'
+  }
+
+  const label: React.CSSProperties = {
+    display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e',
+    marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em'
   }
 
   const villes = [
@@ -148,7 +157,7 @@ export default function PublierPage() {
   const immoTypes: any = {
     'immo-vente': ['Appartement','Villa','Studio','Duplex','Bureau','Commerce','Autre'],
     'immo-location': ['Appartement','Villa','Studio','Duplex','Bureau','Commerce','Autre'],
-    'immo-terrain': ['Terrain nu','Terrain agricole','Terrain commercial','Terrain residentiel'],
+    'immo-terrain': ['Terrain nu','Terrain agricole','Terrain commercial','Terrain résidentiel'],
   }
 
   if (success) return (
@@ -182,26 +191,29 @@ export default function PublierPage() {
         <p style={{color:'#6b7c6e', fontSize:'0.82rem', marginBottom:'20px'}}>Gratuit · Publié en 2 minutes</p>
 
         {/* CATEGORIE */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Catégorie</label>
-        <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} style={{...inp, cursor:'pointer'}}>
+        <label style={label}>Catégorie</label>
+        <select value={form.category} onChange={e => handleCategoryChange(e.target.value)} style={{...inp, cursor:'pointer'}}>
           <option value="">Choisir une catégorie</option>
-          <option value="immo-vente">🏡 Immobilier Vente</option>
-          <option value="immo-location">🏢 Immobilier Location</option>
-          <option value="immo-terrain">🌿 Terrain</option>
-          <option value="voiture">🚗 Voitures</option>
-          <option value="moto">🛵 Motos</option>
-          <option value="electronique">📱 Électronique</option>
-          <option value="mode">👗 Mode et Beauté</option>
-          <option value="maison">🛋️ Maison et Jardin</option>
-          <option value="emploi">💼 Emploi</option>
-          <option value="animaux">🐄 Animaux</option>
-          <option value="services">🏗️ Services</option>
-          <option value="agriculture">🌾 Agriculture</option>
-          <option value="materiaux">🧱 Matériaux Construction</option>
-          <option value="sante">💊 Santé et Beauté</option>
-          <option value="sport">⚽ Sport et Loisirs</option>
-          <option value="education">📚 Éducation</option>
+          {PUBLISH_CATEGORIES.map(c => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
         </select>
+
+        {/* ✅ SOUS-CATEGORIE — apparaît si la catégorie a des sous-catégories */}
+        {subcats.length > 0 && (
+          <div style={{marginBottom:'4px'}}>
+            <label style={label}>Sous-catégorie</label>
+            <select
+              value={form.subcategory}
+              onChange={e => setForm({...form, subcategory: e.target.value})}
+              style={{...inp, cursor:'pointer'}}
+            >
+              {subcats.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* CHAMPS IMMO DYNAMIQUES */}
         {isImmo(form.category) && (
@@ -210,67 +222,69 @@ export default function PublierPage() {
               🏡 Informations immobilières
             </p>
 
-            {/* TYPE DE BIEN */}
-            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Type de bien</label>
+            <label style={label}>Type de bien</label>
             <select value={immoForm.immo_type} onChange={e => setImmoForm({...immoForm, immo_type: e.target.value})}
               style={{...inp, marginBottom:'10px'}}>
               <option value="">Choisir...</option>
               {(immoTypes[form.category] || []).map((t: string) => <option key={t} value={t}>{t}</option>)}
             </select>
 
-            {/* SURFACE */}
-            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Surface (m²)</label>
+            {/* Surface habitable */}
+            <label style={label}>Surface habitable (m²)</label>
             <input type="number" placeholder="Ex: 85" value={immoForm.surface}
               onChange={e => setImmoForm({...immoForm, surface: e.target.value})}
               style={{...inp, marginBottom:'10px'}} />
 
-            {/* CHAMBRES + SDB (pas pour terrain) */}
+            {/* ✅ Surface terrain pour tous les types immo */}
+            <label style={label}>Surface terrain (m²)</label>
+            <input type="number" placeholder="Ex: 500" value={immoForm.surface_terrain}
+              onChange={e => setImmoForm({...immoForm, surface_terrain: e.target.value})}
+              style={{...inp, marginBottom:'10px'}} />
+
             {form.category !== 'immo-terrain' && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
-                <div>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Chambres</label>
-                  <select value={immoForm.chambres} onChange={e => setImmoForm({...immoForm, chambres: e.target.value})}
-                    style={{...inp, marginBottom:0}}>
-                    <option value="">-</option>
-                    {['Studio','1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+              <>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                  <div>
+                    <label style={label}>Chambres</label>
+                    <select value={immoForm.chambres} onChange={e => setImmoForm({...immoForm, chambres: e.target.value})}
+                      style={{...inp, marginBottom:0}}>
+                      <option value="">-</option>
+                      {['Studio','1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={label}>Salles de bain</label>
+                    <select value={immoForm.salles_de_bain} onChange={e => setImmoForm({...immoForm, salles_de_bain: e.target.value})}
+                      style={{...inp, marginBottom:0}}>
+                      <option value="">-</option>
+                      {['1','2','3','4+'].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Salles de bain</label>
-                  <select value={immoForm.salles_de_bain} onChange={e => setImmoForm({...immoForm, salles_de_bain: e.target.value})}
-                    style={{...inp, marginBottom:0}}>
-                    <option value="">-</option>
-                    {['1','2','3','4+'].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                  <div>
+                    <label style={label}>Étage</label>
+                    <select value={immoForm.etage} onChange={e => setImmoForm({...immoForm, etage: e.target.value})}
+                      style={{...inp, marginBottom:0}}>
+                      <option value="">-</option>
+                      {['RDC','1','2','3','4','5+'].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={label}>État</label>
+                    <select value={immoForm.etat} onChange={e => setImmoForm({...immoForm, etat: e.target.value})}
+                      style={{...inp, marginBottom:0}}>
+                      <option value="">-</option>
+                      <option value="neuf">Neuf</option>
+                      <option value="bon-etat">Bon état</option>
+                      <option value="a-renover">À rénover</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
-            {/* ETAGE + ETAT */}
-            {form.category !== 'immo-terrain' && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
-                <div>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Étage</label>
-                  <select value={immoForm.etage} onChange={e => setImmoForm({...immoForm, etage: e.target.value})}
-                    style={{...inp, marginBottom:0}}>
-                    <option value="">-</option>
-                    {['RDC','1','2','3','4','5+'].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>État</label>
-                  <select value={immoForm.etat} onChange={e => setImmoForm({...immoForm, etat: e.target.value})}
-                    style={{...inp, marginBottom:0}}>
-                    <option value="">-</option>
-                    <option value="neuf">Neuf</option>
-                    <option value="bon-etat">Bon état</option>
-                    <option value="a-renover">À rénover</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* MEUBLE + CHARGES (location seulement) */}
             {form.category === 'immo-location' && (
               <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
                 <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', padding:'10px', background:'white', borderRadius:'8px', border:'1px solid #e8ede9'}}>
@@ -289,27 +303,31 @@ export default function PublierPage() {
         )}
 
         {/* TITRE */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Titre</label>
+        <label style={label}>Titre</label>
         <input type="text" placeholder="Ex: Villa 4 chambres Kigali Kimironko" value={form.title}
           onChange={e => setForm({...form, title: e.target.value})} style={inp}/>
 
         {/* PRIX */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>
-          Prix (RWF){form.category === 'immo-location' ? ' / mois' : ''}
-        </label>
+        <label style={label}>Prix (RWF){form.category === 'immo-location' ? ' / mois' : ''}</label>
         <input type="number" placeholder="Ex: 85000000" value={form.price}
           onChange={e => setForm({...form, price: e.target.value})} style={inp}/>
 
         {/* DESCRIPTION */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Description</label>
-        <textarea placeholder={isImmo(form.category) ? "Décrivez le bien : emplacement, état, équipements, proximité des commodités..." : "Décrivez votre article en détail..."} value={form.description}
+        <label style={label}>Description</label>
+        <textarea
+          placeholder={isImmo(form.category)
+            ? "Décrivez le bien : emplacement, état, équipements..."
+            : form.category === 'animaux'
+            ? "Race, âge, sexe, vaccins, caractère..."
+            : "Décrivez votre article en détail..."}
+          value={form.description}
           onChange={e => setForm({...form, description: e.target.value})}
           style={{...inp, minHeight: isImmo(form.category) ? '120px' : '80px', resize:'vertical'}}/>
 
         {/* VILLE */}
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
           <div>
-            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Ville</label>
+            <label style={label}>Ville</label>
             <select value={form.ville} onChange={e => setForm({...form, ville: e.target.value})}
               style={{...inp, cursor:'pointer', marginBottom:'12px'}}>
               <option value="">Choisir</option>
@@ -317,20 +335,18 @@ export default function PublierPage() {
             </select>
           </div>
           <div>
-            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Quartier</label>
+            <label style={label}>Quartier</label>
             <input type="text" placeholder="Ex: Kicukiro" value={form.district}
               onChange={e => setForm({...form, district: e.target.value})} style={inp}/>
           </div>
         </div>
 
         {/* TELEPHONE */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>📞 Téléphone</label>
+        <label style={label}>📞 Téléphone</label>
         <div style={{display:'flex', gap:'8px', marginBottom:'12px'}}>
           <select value={form.phone_indicatif} onChange={e => setForm({...form, phone_indicatif: e.target.value})}
             style={{padding:'11px 8px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'#fafaf9', color:'#111a14', cursor:'pointer', flexShrink:0}}>
-            {INDICATIFS.map(i => (
-              <option key={i.code} value={i.code}>{i.flag} {i.code}</option>
-            ))}
+            {INDICATIFS.map(i => <option key={i.code} value={i.code}>{i.flag} {i.code}</option>)}
           </select>
           <input type="tel" placeholder="780 000 000" value={form.phone}
             onChange={e => setForm({...form, phone: e.target.value})}
@@ -338,7 +354,6 @@ export default function PublierPage() {
             style={{flex:1, padding:'11px 14px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.92rem', outline:'none', background: form.hide_phone ? '#f5f7f5' : '#fafaf9', color:'#111a14'}} />
         </div>
 
-        {/* WHATSAPP */}
         <label style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px', cursor:'pointer'}}>
           <input type="checkbox" checked={form.whatsapp_same} onChange={e => setForm({...form, whatsapp_same: e.target.checked})}
             style={{width:'15px', height:'15px', accentColor:'#1a7a4a', cursor:'pointer'}} />
@@ -347,13 +362,11 @@ export default function PublierPage() {
 
         {!form.whatsapp_same && (
           <>
-            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>💬 WhatsApp</label>
+            <label style={label}>💬 WhatsApp</label>
             <div style={{display:'flex', gap:'8px', marginBottom:'12px'}}>
               <select value={form.whatsapp_indicatif} onChange={e => setForm({...form, whatsapp_indicatif: e.target.value})}
                 style={{padding:'11px 8px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'#fafaf9', color:'#111a14', cursor:'pointer', flexShrink:0}}>
-                {INDICATIFS.map(i => (
-                  <option key={i.code} value={i.code}>{i.flag} {i.code}</option>
-                ))}
+                {INDICATIFS.map(i => <option key={i.code} value={i.code}>{i.flag} {i.code}</option>)}
               </select>
               <input type="tel" placeholder="780 000 000" value={form.whatsapp}
                 onChange={e => setForm({...form, whatsapp: e.target.value})}
@@ -362,7 +375,6 @@ export default function PublierPage() {
           </>
         )}
 
-        {/* CACHER NUMERO */}
         <label style={{display:'flex', alignItems:'flex-start', gap:'10px', cursor:'pointer', padding:'12px', background:'#f5f7f5', borderRadius:'9px', border:'1px solid #e8ede9', marginBottom:'16px'}}>
           <input type="checkbox" checked={form.hide_phone} onChange={e => setForm({...form, hide_phone: e.target.checked, phone: e.target.checked ? '' : form.phone})}
             style={{width:'16px', height:'16px', accentColor:'#1a7a4a', cursor:'pointer', marginTop:'2px'}} />
@@ -374,9 +386,7 @@ export default function PublierPage() {
 
         {/* PHOTOS */}
         <div style={{marginBottom:'16px'}}>
-          <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'8px', textTransform:'uppercase', letterSpacing:'0.04em'}}>
-            Photos ({photos.length}/5)
-          </label>
+          <label style={label}>Photos ({photos.length}/5)</label>
           {photos.length < 5 && (
             <input type="file" accept="image/*" multiple onChange={handlePhotos}
               style={{width:'100%', padding:'10px', border:'1.5px dashed #e8ede9', borderRadius:'9px', background:'#fafaf9', cursor:'pointer', boxSizing:'border-box', marginBottom:'10px'}}

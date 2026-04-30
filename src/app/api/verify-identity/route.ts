@@ -1,75 +1,57 @@
-import { NextRequest, NextResponse } from 'next/server'
-import Tesseract from 'tesseract.js'
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import Tesseract from 'tesseract.js';
 
-function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // enleve les accents
-    .replace(/[^a-z\s]/g, '') // garde seulement lettres et espaces
-    .trim()
-}
-
-function namesMatch(docText: string, userName: string): boolean {
-  const normalizedDoc = normalizeName(docText)
-  const normalizedUser = normalizeName(userName)
-
-  // Diviser le nom utilisateur en mots
-  const userWords = normalizedUser.split(/\s+/).filter(w => w.length > 2)
-
-  // Verifier que chaque mot du nom utilisateur apparait dans le texte du document
-  const matchCount = userWords.filter(word => normalizedDoc.includes(word)).length
-
-  // Au moins 60% des mots doivent correspondre
-  return matchCount >= Math.ceil(userWords.length * 0.6)
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { imageBase64, mediaType, userName } = await req.json()
+    const formData = await req.formData();
+    const imageFile = formData.get('idCard') as File;
+    const userId = formData.get('userId') as string;
 
-    if (!imageBase64 || !userName) {
-      return NextResponse.json({ verified: false, reason: 'Donnees manquantes' })
+    if (!imageFile || !userId) {
+      return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
     }
 
-    if (normalizeName(userName).split(/\s+/).filter(w => w.length > 2).length === 0) {
-      return NextResponse.json({ verified: false, reason: 'Nom de profil trop court ou invalide' })
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Analyse de l'image
+    const { data: { text } } = await Tesseract.recognize(buffer, 'eng+fra');
+    const textOnCard = text.toUpperCase();
+
+    // Recherche dans la table users
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profile?.full_name) {
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
     }
 
-    // Convertir base64 en Buffer
-    const imageBuffer = Buffer.from(imageBase64, 'base64')
+    const nameToFind = profile.full_name.toUpperCase();
 
-    // OCR avec Tesseract
-    const { data: { text } } = await Tesseract.recognize(
-      imageBuffer,
-      'fra+eng', // français + anglais
-      {
-        logger: () => {}, // silence les logs
-      }
-    )
+    // Comparaison
+    if (textOnCard.includes(nameToFind)) {
+      await supabase
+        .from('users')
+        .update({ 
+          is_verified: true,
+          id_verification_status: 'verified' 
+        })
+        .eq('id', userId);
 
-    if (!text || text.trim().length < 10) {
-      return NextResponse.json({
-        verified: false,
-        reason: 'Impossible de lire le document. Assurez-vous que la photo est nette et bien eclairee.'
-      })
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json({ 
+        success: false, 
+        message: `Le nom '${nameToFind}' n'a pas été détecté.` 
+      }, { status: 400 });
     }
-
-    const verified = namesMatch(text, userName)
-
-    return NextResponse.json({
-      verified,
-      name_on_document: text.substring(0, 200),
-      reason: verified
-        ? 'Nom trouve sur le document'
-        : 'Le nom sur le document ne correspond pas au nom de votre profil. Verifiez que votre nom complet est correctement saisi.'
-    })
 
   } catch (err) {
-    console.error('Verify identity error:', err)
-    return NextResponse.json({
-      verified: false,
-      reason: 'Erreur lors de la lecture du document. Reessayez avec une image plus nette.'
-    })
+    console.error(err);
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
   }
 }

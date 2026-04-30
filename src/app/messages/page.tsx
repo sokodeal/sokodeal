@@ -12,6 +12,8 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<any>(null)
+  // ✅ FIX : on garde en mémoire les convs déjà lues
+  const readConvsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const init = async () => {
@@ -79,26 +81,34 @@ export default function MessagesPage() {
     const convList = Array.from(convMap.values())
 
     // Charger les infos des autres utilisateurs
-    const otherIds = [...new Set(convList.map(c => c.other_id).filter(Boolean))]
+    const otherIds = [...new Set(convList.map((c: any) => c.other_id).filter(Boolean))]
     if (otherIds.length > 0) {
       const { data: usersData } = await supabase
         .from('users')
         .select('id, username, full_name')
         .in('id', otherIds)
       const usersMap = new Map((usersData || []).map((u: any) => [u.id, u]))
-      convList.forEach(c => { c.other_user = usersMap.get(c.other_id) || null })
+      convList.forEach((c: any) => { c.other_user = usersMap.get(c.other_id) || null })
     }
 
     // Charger les titres des annonces
-    const adIds = [...new Set(convList.map(c => c.ad_id).filter(Boolean))]
+    const adIds = [...new Set(convList.map((c: any) => c.ad_id).filter(Boolean))]
     if (adIds.length > 0) {
       const { data: adsData } = await supabase
         .from('ads')
         .select('id, title, images, category')
         .in('id', adIds)
       const adsMap = new Map((adsData || []).map((a: any) => [a.id, a]))
-      convList.forEach(c => { c.ad = adsMap.get(c.ad_id) || null })
+      convList.forEach((c: any) => { c.ad = adsMap.get(c.ad_id) || null })
     }
+
+    // ✅ FIX : appliquer les convs déjà lues pour ne pas remettre le badge
+    convList.forEach((c: any) => {
+      const key = `${c.ad_id}__${c.other_id}`
+      if (readConvsRef.current.has(key)) {
+        c.unread = 0
+      }
+    })
 
     setConversations(convList)
   }
@@ -106,15 +116,9 @@ export default function MessagesPage() {
   const openConversation = async (conv: any) => {
     setActiveConv(conv)
 
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('ad_id', conv.ad_id)
-      .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),` +
-        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`
-      )
-      .order('created_at', { ascending: true })
+    // ✅ FIX : mémoriser cette conv comme lue immédiatement
+    const key = `${conv.ad_id}__${conv.other_id}`
+    readConvsRef.current.add(key)
 
     // Marquer comme lu en base
     await supabase
@@ -124,7 +128,7 @@ export default function MessagesPage() {
       .eq('ad_id', conv.ad_id)
       .eq('sender_id', conv.other_id)
 
-    // Recharger les messages avec is_read à jour
+    // Charger les messages
     const { data: updatedData } = await supabase
       .from('messages')
       .select('*')
@@ -137,16 +141,10 @@ export default function MessagesPage() {
 
     setMessages(updatedData || [])
 
-    // Reset badge rouge
+    // ✅ FIX : reset badge dans le state local immédiatement
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
     ))
-    const broadcastCh = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
-broadcastCh.send({
-  type: 'broadcast',
-  event: 'messages_read',
-  payload: {},
-})
   }
 
   const markAsRead = async (userId: string) => {
@@ -175,7 +173,8 @@ broadcastCh.send({
     if (data) setMessages(prev => [...prev, data])
     setNewMessage('')
     setSending(false)
-    loadConversations(user)
+    // ✅ FIX : recharger sans perdre les badges déjà lus
+    await loadConversations(user)
   }
 
   const handleKeyDown = (e: any) => {
@@ -223,8 +222,7 @@ broadcastCh.send({
         textarea:focus { border-color: #1a7a4a !important; outline: none; }
       `}</style>
 
-      {/* HEADER */}
-     <Header />
+      <Header />
 
       <div style={{ maxWidth: '1100px', width: '100%', margin: '20px auto', padding: '0 5%', flex: 1, display: 'flex', flexDirection: 'column' }}>
         <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '16px', color: '#111a14' }}>
@@ -250,7 +248,6 @@ broadcastCh.send({
                 <div key={i} className="conv-item" onClick={() => openConversation(conv)}
                   style={{ padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f4f1', background: activeConv?.ad_id === conv.ad_id && activeConv?.other_id === conv.other_id ? '#f0f4f1' : 'white', transition: 'background 0.15s' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {/* AVATAR */}
                     <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#1a7a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, color: 'white', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
                       {(conv.other_user?.username || conv.other_user?.full_name || conv.other_email || 'U')[0].toUpperCase()}
                     </div>
@@ -287,7 +284,6 @@ broadcastCh.send({
               </div>
             ) : (
               <>
-                {/* Header chat */}
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f4f1', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#1a7a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, color: 'white', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
                     {(activeConv.other_user?.username || activeConv.other_user?.full_name || activeConv.other_email || 'U')[0].toUpperCase()}
@@ -307,7 +303,6 @@ broadcastCh.send({
                   )}
                 </div>
 
-                {/* Messages */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {messages.map((msg, i) => {
                     const isMe = msg.sender_id === user.id
@@ -341,7 +336,6 @@ broadcastCh.send({
                   <div ref={bottomRef} />
                 </div>
 
-                {/* Input */}
                 <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f4f1', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                   <textarea
                     value={newMessage}
