@@ -16,6 +16,7 @@ export function useUnreadCount() {
   useEffect(() => {
     let userId: string | null = null
     let channel: any = null
+    let interval: any = null
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -23,8 +24,8 @@ export function useUnreadCount() {
       userId = user.id
       await loadCount(user.id)
 
+      // Realtime pour nouveaux messages
       channel = supabase.channel('unread-' + user.id.slice(0, 8))
-
       channel.on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -34,26 +35,18 @@ export function useUnreadCount() {
         setUnreadCount(c => c + 1)
       }).subscribe()
 
-      // Recharger quand la page redevient visible
-      const handleVisibility = () => {
-        if (document.visibilityState === 'visible' && userId) {
-          loadCount(userId)
-        }
-      }
-      document.addEventListener('visibilitychange', handleVisibility)
-
-      // Recharger au focus
-      const handleFocus = () => { if (userId) loadCount(userId) }
-      window.addEventListener('focus', handleFocus)
-
-      return () => {
-        if (channel) supabase.removeChannel(channel)
-        document.removeEventListener('visibilitychange', handleVisibility)
-        window.removeEventListener('focus', handleFocus)
-      }
+      // Interval 3s pour sync apres lecture
+      interval = setInterval(() => {
+        if (userId) loadCount(userId)
+      }, 3000)
     }
 
     init()
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (interval) clearInterval(interval)
+    }
   }, [loadCount])
 
   return { unreadCount }
