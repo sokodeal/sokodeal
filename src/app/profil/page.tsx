@@ -19,17 +19,17 @@ function AlertesTab({ userId }: { userId: string }) {
     { value:'immo-terrain', label:'🌿 Terrain' },
     { value:'voiture', label:'🚗 Voitures' },
     { value:'moto', label:'🛵 Motos' },
-    { value:'electronique', label:'📱 Électronique' },
+    { value:'electronique', label:'📱 Electronique' },
     { value:'mode', label:'👗 Mode' },
     { value:'maison', label:'🛋️ Maison' },
     { value:'emploi', label:'💼 Emploi' },
     { value:'animaux', label:'🐄 Animaux' },
     { value:'services', label:'🏗️ Services' },
     { value:'agriculture', label:'🌾 Agriculture' },
-    { value:'materiaux', label:'🧱 Matériaux' },
-    { value:'sante', label:'💊 Santé' },
+    { value:'materiaux', label:'🧱 Materiaux' },
+    { value:'sante', label:'💊 Sante' },
     { value:'sport', label:'⚽ Sport' },
-    { value:'education', label:'📚 Éducation' },
+    { value:'education', label:'📚 Education' },
   ]
 
   const villes = ['Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Rubavu','Rusizi','Huye','Ngoma','Nyagatare']
@@ -115,7 +115,7 @@ function AlertesTab({ userId }: { userId: string }) {
     </div>
   )
 
-  if (loading) return <div style={{textAlign:'center', padding:'40px', color:'#6b7c6e'}}>⏳ Chargement...</div>
+  if (loading) return <div style={{textAlign:'center', padding:'40px', color:'#6b7c6e'}}>Chargement...</div>
 
   return (
     <div>
@@ -147,16 +147,16 @@ function AlertesTab({ userId }: { userId: string }) {
 
           {showNewAlert && (
             <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1.5px solid #1a7a4a', marginBottom:'16px'}}>
-              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>Créer une alerte</h3>
+              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>Creer une alerte</h3>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'12px'}}>
                 <div style={{gridColumn:'span 2'}}>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Mot-clé</label>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Mot-cle</label>
                   <input value={alertForm.query} onChange={e => setAlertForm({...alertForm, query: e.target.value})}
                     placeholder="Ex: iPhone, Toyota, Appartement..."
                     style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}} />
                 </div>
                 <div>
-                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Catégorie</label>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Categorie</label>
                   <select value={alertForm.category} onChange={e => setAlertForm({...alertForm, category: e.target.value})}
                     style={{width:'100%', padding:'10px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', color:'#111a14', background:'#fafaf9'}}>
                     <option value="">Toutes</option>
@@ -187,7 +187,7 @@ function AlertesTab({ userId }: { userId: string }) {
               <div style={{display:'flex', gap:'8px'}}>
                 <button onClick={handleCreateAlert} disabled={savingAlert || (!alertForm.query && !alertForm.category && !alertForm.province)}
                   style={{flex:1, padding:'11px', background: savingAlert ? '#ccc' : '#1a7a4a', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:'white', cursor:'pointer'}}>
-                  {savingAlert ? '⏳...' : '🔔 Créer l\'alerte'}
+                  {savingAlert ? 'Chargement...' : 'Creer l alerte'}
                 </button>
                 <button onClick={() => setShowNewAlert(false)} style={{padding:'11px 16px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', cursor:'pointer'}}>
                   Annuler
@@ -200,9 +200,9 @@ function AlertesTab({ userId }: { userId: string }) {
             <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
               <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🔔</div>
               <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune alerte</h3>
-              <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Créez une alerte pour être notifié des nouvelles annonces</p>
+              <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Creez une alerte pour etre notifie des nouvelles annonces</p>
               <button onClick={() => setShowNewAlert(true)} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
-                + Créer une alerte
+                + Creer une alerte
               </button>
             </div>
           ) : (
@@ -213,7 +213,7 @@ function AlertesTab({ userId }: { userId: string }) {
                     <div style={{flex:1, minWidth:0}}>
                       {renderTags(s)}
                       <div style={{fontSize:'0.7rem', color:'#9ca3af', marginTop:'6px'}}>
-                        Créée le {new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long'})}
+                        Creee le {new Date(s.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long'})}
                       </div>
                     </div>
                     <div style={{display:'flex', alignItems:'center', gap:'6px', flexShrink:0}}>
@@ -224,10 +224,10 @@ function AlertesTab({ userId }: { userId: string }) {
                         color: s.alert_enabled ? '#1a7a4a' : '#6b7c6e',
                         fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.75rem', cursor:'pointer'
                       }}>
-                        {s.alert_enabled ? '🔔 Active' : '🔕 Off'}
+                        {s.alert_enabled ? 'Active' : 'Off'}
                       </button>
                       <button onClick={() => deleteAlert(s.id)} style={{padding:'5px 10px', borderRadius:'7px', border:'1px solid #ffd6d6', background:'#fff1f0', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.75rem', cursor:'pointer'}}>
-                        🗑️
+                        Suppr.
                       </button>
                     </div>
                   </div>
@@ -241,13 +241,13 @@ function AlertesTab({ userId }: { userId: string }) {
       {activeSubTab === 'historique' && (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>🕐 Historique des recherches</h2>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>Historique des recherches</h2>
             {history.length > 0 && (
               <button onClick={async () => {
                 await supabase.from('search_history').delete().eq('user_id', userId)
                 setHistory([])
               }} style={{padding:'7px 14px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', color:'#c0392b', cursor:'pointer'}}>
-                🗑️ Tout effacer
+                Tout effacer
               </button>
             )}
           </div>
@@ -256,7 +256,7 @@ function AlertesTab({ userId }: { userId: string }) {
             <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
               <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🕐</div>
               <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun historique</h3>
-              <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos recherches apparaîtront ici automatiquement</p>
+              <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos recherches apparaitront ici automatiquement</p>
             </div>
           ) : (
             <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
@@ -265,15 +265,15 @@ function AlertesTab({ userId }: { userId: string }) {
                   <div style={{flex:1, minWidth:0}}>
                     {renderTags(h)}
                     <div style={{fontSize:'0.7rem', color:'#9ca3af', marginTop:'4px'}}>
-                      {new Date(h.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long', hour:'2-digit', minute:'2-digit'})}
+                      {new Date(h.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'long'})}
                     </div>
                   </div>
                   <div style={{display:'flex', gap:'6px', flexShrink:0}}>
                     <button onClick={() => handleAlertFromHistory(h)} style={{padding:'5px 10px', borderRadius:'7px', border:'1px solid #b7dfca', background:'#e8f5ee', color:'#1a7a4a', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.72rem', cursor:'pointer', whiteSpace:'nowrap'}}>
-                      🔔 Créer alerte
+                      Creer alerte
                     </button>
                     <button onClick={() => deleteHistory(h.id)} style={{padding:'5px 8px', borderRadius:'7px', border:'1px solid #ffd6d6', background:'#fff1f0', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.72rem', cursor:'pointer'}}>
-                      🗑️
+                      Suppr.
                     </button>
                   </div>
                 </div>
@@ -351,8 +351,8 @@ export default function ProfilPage() {
 
   const validateUsername = (value: string) => {
     if (!value) return ''
-    if (value.length < 3) return 'Minimum 3 caractères'
-    if (value.length > 20) return 'Maximum 20 caractères'
+    if (value.length < 3) return 'Minimum 3 caracteres'
+    if (value.length > 20) return 'Maximum 20 caracteres'
     if (!/^[a-z0-9_]+$/.test(value)) return 'Lettres minuscules, chiffres et _ seulement'
     return ''
   }
@@ -368,7 +368,7 @@ export default function ProfilPage() {
         .eq('username', profileForm.username)
         .neq('id', user.id)
         .single()
-      if (existing) { setUsernameError('Ce username est déjà pris'); return }
+      if (existing) { setUsernameError('Ce username est deja pris'); return }
     }
 
     await supabase.auth.updateUser({ data: { full_name: profileForm.full_name, phone: profileForm.phone, location: profileForm.location } })
@@ -383,8 +383,8 @@ export default function ProfilPage() {
         username: profileForm.username || null,
       })
 
-    if (error) { setMsg('❌ ' + error.message); return }
-    setMsg('✅ Profil mis à jour !')
+    if (error) { setMsg('Erreur : ' + error.message); return }
+    setMsg('Profil mis a jour !')
     setEditMode(false)
     setUsernameError('')
     setTimeout(() => setMsg(''), 3000)
@@ -394,6 +394,15 @@ export default function ProfilPage() {
     if (!confirm('Supprimer cette annonce ?')) return
     await supabase.from('ads').delete().eq('id', id).eq('user_id', user.id)
     setAds(ads.filter(a => a.id !== id))
+  }
+
+  const handleMarkSold = async (id: string) => {
+    if (!confirm('Marquer cette annonce comme vendue ? Elle sera supprimee dans 24h.')) return
+    await supabase.from('ads').update({
+      is_sold: true,
+      sold_at: new Date().toISOString(),
+    }).eq('id', id).eq('user_id', user.id)
+    setAds(ads.map(a => a.id === id ? { ...a, is_sold: true } : a))
   }
 
   const handleBoost = async () => {
@@ -408,8 +417,8 @@ export default function ProfilPage() {
       ends_at: ends.toISOString(),
     }])
     setBoostLoading(false)
-    if (error) { setBoostMsg('❌ ' + error.message); return }
-    setBoostMsg('✅ Annonce boostée !')
+    if (error) { setBoostMsg('Erreur : ' + error.message); return }
+    setBoostMsg('Annonce boostee !')
     setTimeout(() => { setSelectedBoost(null); setSelectedAd(null); setBoostMsg('') }, 2000)
   }
 
@@ -421,25 +430,27 @@ export default function ProfilPage() {
   }
 
   const boostPlans = [
-    { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#f59e0b', features:['Top 3 jours','Badge Boosté','2x vues'] },
-    { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top 7 jours','Badge Boosté','5x vues'], popular:true },
+    { name:'Boost 3 jours', price:'2 000', icon:'⚡', color:'#f59e0b', features:['Top 3 jours','Badge Booste','2x vues'] },
+    { name:'Boost 7 jours', price:'4 000', icon:'🔥', color:'#1a7a4a', features:['Top 7 jours','Badge Booste','5x vues'], popular:true },
     { name:'Boost 30 jours', price:'12 000', icon:'💎', color:'#0f5233', features:['Top 30 jours','Badge Premium','10x vues'] },
   ]
 
+  const soldCount = ads.filter(a => a.is_sold).length
+
   const tabs = [
     { id:'annonces', label:'Mes annonces', count: ads.length },
-    { id:'favoris', label:'❤️ Favoris', count: favorites.length },
+    { id:'favoris', label:'Favoris', count: favorites.length },
     { id:'profil', label:'Mon profil', count: null },
     { id:'abonnement', label:'Abonnement', count: null },
     { id:'boosts', label:'Boosts', count: null },
-    { id:'alertes', label:'🔔 Alertes', count: null },
+    { id:'alertes', label:'Alertes', count: null },
     { id:'stats', label:'Stats', count: null },
-    { id:'vendus', label:'Vendus', count: 0 },
+    { id:'vendus', label:'Vendus', count: soldCount },
   ]
 
   if (loading) return (
     <div style={{minHeight:'100vh', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center'}}>
-      <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>⏳ Chargement...</p>
+      <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>Chargement...</p>
     </div>
   )
 
@@ -459,7 +470,6 @@ export default function ProfilPage() {
         }
       `}</style>
 
-      {/* MODAL BOOST */}
       {selectedBoost && (
         <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.4)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px'}}>
           <div style={{background:'white', borderRadius:'16px', padding:'28px', maxWidth:'420px', width:'100%', border:'1px solid #e8ede9', boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
@@ -469,12 +479,12 @@ export default function ProfilPage() {
             {selectedAd ? (
               <>
                 <div style={{background:'#f5f7f5', borderRadius:'10px', padding:'14px', marginBottom:'16px', border:'1px solid #e8ede9'}}>
-                  <div style={{fontSize:'0.78rem', color:'#6b7c6e', marginBottom:'4px'}}>Annonce sélectionnée</div>
+                  <div style={{fontSize:'0.78rem', color:'#6b7c6e', marginBottom:'4px'}}>Annonce selectionnee</div>
                   <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#111a14'}}>{selectedAd.title}</div>
                 </div>
                 <div style={{background:'#f5f7f5', borderRadius:'10px', padding:'14px', marginBottom:'16px', border:'1px solid #e8ede9'}}>
                   <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
-                    <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>Durée</span>
+                    <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>Duree</span>
                     <span style={{fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{selectedBoost.name}</span>
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between'}}>
@@ -482,14 +492,14 @@ export default function ProfilPage() {
                     <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'1rem'}}>{selectedBoost.price} RWF</span>
                   </div>
                 </div>
-                {boostMsg && <p style={{background: boostMsg.includes('✅') ? '#e8f5ee' : '#fff1f0', color: boostMsg.includes('✅') ? '#1a7a4a' : '#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'12px', border:'1px solid ' + (boostMsg.includes('✅') ? '#b7dfca' : '#ffd6d6')}}>{boostMsg}</p>}
+                {boostMsg && <p style={{background:'#e8f5ee', color:'#1a7a4a', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'12px'}}>{boostMsg}</p>}
                 <button onClick={handleBoost} disabled={boostLoading} style={{width:'100%', padding:'12px', background: boostLoading ? '#ccc' : '#1a7a4a', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'white', cursor: boostLoading ? 'not-allowed' : 'pointer', marginBottom:'10px'}}>
-                  {boostLoading ? '⏳ En cours...' : '⚡ Confirmer le boost'}
+                  {boostLoading ? 'En cours...' : 'Confirmer le boost'}
                 </button>
               </>
             ) : (
               <>
-                <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'12px'}}>Choisissez l'annonce à booster :</p>
+                <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'12px'}}>Choisissez l annonce a booster :</p>
                 <div style={{display:'flex', flexDirection:'column', gap:'8px', marginBottom:'14px', maxHeight:'220px', overflowY:'auto'}}>
                   {ads.length === 0 ? (
                     <p style={{color:'#6b7c6e', fontSize:'0.82rem'}}>Aucune annonce disponible.</p>
@@ -512,7 +522,6 @@ export default function ProfilPage() {
         </div>
       )}
 
-      {/* HEADER */}
       <header style={{background:'white', borderBottom:'1px solid #e8ede9', position:'sticky', top:0, zIndex:100}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'58px', maxWidth:'1100px', margin:'0 auto'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
@@ -524,13 +533,12 @@ export default function ProfilPage() {
               + Publier
             </button>
             <button onClick={handleLogout} style={{padding:'7px 16px', background:'transparent', border:'1px solid #e8ede9', borderRadius:'8px', color:'#6b7c6e', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', cursor:'pointer'}}>
-              Déconnexion
+              Deconnexion
             </button>
           </div>
         </div>
       </header>
 
-      {/* HERO */}
       <div style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'28px 5% 50px'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', alignItems:'center', gap:'16px'}}>
           <div style={{width:'56px', height:'56px', borderRadius:'50%', background:'#f5a623', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.4rem', fontWeight:800, color:'#111a14', fontFamily:'Syne,sans-serif', flexShrink:0}}>
@@ -548,11 +556,11 @@ export default function ProfilPage() {
               <span style={{background:'rgba(255,255,255,0.12)', color:'white', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>Membre SokoDeal</span>
               <span style={{background:'rgba(245,166,35,0.25)', color:'#f5a623', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>{ads.length} annonce(s)</span>
               {favorites.length > 0 && (
-                <span style={{background:'rgba(239,68,68,0.2)', color:'#fca5a5', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>❤️ {favorites.length} favori(s)</span>
+                <span style={{background:'rgba(239,68,68,0.2)', color:'#fca5a5', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600}}>{favorites.length} favori(s)</span>
               )}
               {profileForm.username && (
                 <a href={'/u/' + profileForm.username} style={{background:'rgba(255,255,255,0.15)', color:'white', padding:'3px 10px', borderRadius:'20px', fontSize:'0.72rem', fontWeight:600, textDecoration:'none'}}>
-                  Voir mon profil public →
+                  Voir mon profil public
                 </a>
               )}
             </div>
@@ -562,16 +570,15 @@ export default function ProfilPage() {
 
       <div style={{maxWidth:'1100px', margin:'-22px auto 0', padding:'0 5% 40px'}}>
 
-        {/* STATS */}
         <div className="profil-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginBottom:'20px'}}>
           {[
             { label:'Annonces', value: ads.length, icon:'📋', color:'#1a7a4a' },
             { label:'Favoris', value: favorites.length, icon:'❤️', color:'#ef4444' },
             { label:'Messages', value:'—', icon:'💬', color:'#6b7c6e' },
-            { label:'Vendus', value:'0', icon:'✅', color:'#f59e0b' },
+            { label:'Vendus', value: soldCount, icon:'✅', color:'#f59e0b' },
           ].map((s, i) => (
-            <div key={i} onClick={() => s.label === 'Favoris' ? setActiveTab('favoris') : null}
-              style={{background:'white', borderRadius:'12px', padding:'14px', border:'1px solid #e8ede9', textAlign:'center', cursor: s.label === 'Favoris' ? 'pointer' : 'default'}}>
+            <div key={i} onClick={() => s.label === 'Favoris' ? setActiveTab('favoris') : s.label === 'Vendus' ? setActiveTab('vendus') : null}
+              style={{background:'white', borderRadius:'12px', padding:'14px', border:'1px solid #e8ede9', textAlign:'center', cursor: s.label === 'Favoris' || s.label === 'Vendus' ? 'pointer' : 'default'}}>
               <div style={{fontSize:'1.4rem', marginBottom:'4px'}}>{s.icon}</div>
               <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', color:s.color}}>{s.value}</div>
               <div style={{fontSize:'0.7rem', color:'#6b7c6e', marginTop:'2px'}}>{s.label}</div>
@@ -579,14 +586,13 @@ export default function ProfilPage() {
           ))}
         </div>
 
-        {/* TABS */}
         <div style={{display:'flex', gap:'6px', marginBottom:'16px', overflowX:'auto', paddingBottom:'4px', scrollbarWidth:'none'}}>
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
               padding:'8px 16px', border: activeTab === tab.id ? 'none' : '1px solid #e8ede9',
               borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans,sans-serif',
               fontWeight:600, fontSize:'0.82rem', whiteSpace:'nowrap',
-              background: activeTab === tab.id ? (tab.id === 'favoris' ? '#ef4444' : '#1a7a4a') : 'white',
+              background: activeTab === tab.id ? '#1a7a4a' : 'white',
               color: activeTab === tab.id ? 'white' : '#6b7c6e',
             }}>
               {tab.label}
@@ -599,7 +605,6 @@ export default function ProfilPage() {
           ))}
         </div>
 
-        {/* TAB: ANNONCES */}
         {activeTab === 'annonces' && (
           <div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
@@ -612,7 +617,7 @@ export default function ProfilPage() {
               <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
                 <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📭</div>
                 <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucune annonce</h3>
-                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Publiez votre première annonce gratuitement</p>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Publiez votre premiere annonce gratuitement</p>
                 <button onClick={() => window.location.href='/publier'} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   + Publier
                 </button>
@@ -627,20 +632,33 @@ export default function ProfilPage() {
                       ) : (
                         <span style={{opacity:0.5}}>{catEmoji[ad.category] || '📦'}</span>
                       )}
-                      <span style={{position:'absolute', top:'6px', left:'6px', background:'#1a7a4a', color:'white', fontSize:'0.62rem', fontWeight:700, padding:'2px 7px', borderRadius:'5px'}}>Active</span>
+                      <span style={{position:'absolute', top:'6px', left:'6px', background: ad.is_sold ? '#f59e0b' : '#1a7a4a', color:'white', fontSize:'0.62rem', fontWeight:700, padding:'2px 7px', borderRadius:'5px'}}>
+                        {ad.is_sold ? 'VENDU' : 'Active'}
+                      </span>
                     </div>
                     <div style={{padding:'10px'}}>
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'0.9rem', marginBottom:'8px'}}>{Number(ad.price).toLocaleString()} RWF</div>
                       <div style={{display:'flex', gap:'5px'}}>
                         <button onClick={() => window.location.href='/annonce/' + ad.id} style={{flex:1, padding:'6px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', cursor:'pointer'}}>
-                          👁️ Voir
+                          Voir
                         </button>
-                        <button onClick={() => window.location.href='/modifier/' + ad.id} style={{flex:1, padding:'6px', background:'#e8f5ee', border:'1px solid #b7dfca', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', cursor:'pointer'}}>
-                          ✏️ Modifier
-                        </button>
+                        {!ad.is_sold ? (
+                          <>
+                            <button onClick={() => window.location.href='/modifier/' + ad.id} style={{flex:1, padding:'6px', background:'#e8f5ee', border:'1px solid #b7dfca', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#1a7a4a', cursor:'pointer'}}>
+                              Modifier
+                            </button>
+                            <button onClick={() => handleMarkSold(ad.id)} style={{flex:1, padding:'6px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#78350f', cursor:'pointer'}}>
+                              Vendu
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{flex:1, padding:'6px', background:'#f0f4f1', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:700, color:'#1a7a4a', textAlign:'center'}}>
+                            Vendu
+                          </div>
+                        )}
                         <button onClick={() => handleDeleteAd(ad.id)} style={{flex:1, padding:'6px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#c0392b', cursor:'pointer'}}>
-                          🗑️
+                          Suppr.
                         </button>
                       </div>
                     </div>
@@ -651,20 +669,19 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {/* TAB: FAVORIS */}
         {activeTab === 'favoris' && (
           <div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
-              <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>❤️ Mes favoris</h2>
+              <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>Mes favoris</h2>
               <span style={{fontSize:'0.82rem', color:'#6b7c6e'}}>{favorites.length} annonce(s)</span>
             </div>
             {favLoading ? (
-              <div style={{textAlign:'center', padding:'60px', color:'#6b7c6e'}}>⏳ Chargement...</div>
+              <div style={{textAlign:'center', padding:'60px', color:'#6b7c6e'}}>Chargement...</div>
             ) : favoriteAds.length === 0 ? (
               <div style={{background:'white', borderRadius:'14px', padding:'48px', textAlign:'center', border:'1px solid #e8ede9'}}>
                 <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🤍</div>
                 <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun favori</h3>
-                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Cliquez sur le cœur d'une annonce pour la sauvegarder</p>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Cliquez sur le coeur d une annonce pour la sauvegarder</p>
                 <button onClick={() => window.location.href='/'} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   Parcourir les annonces
                 </button>
@@ -695,22 +712,19 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {/* TAB: PROFIL */}
         {activeTab === 'profil' && (
           <div style={{background:'white', borderRadius:'14px', padding:'24px', border:'1px solid #e8ede9'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
               <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#111a14'}}>Informations personnelles</h2>
               <button onClick={() => setEditMode(!editMode)} style={{padding:'7px 16px', background: editMode ? '#fff1f0' : '#f5f7f5', color: editMode ? '#c0392b' : '#111a14', border:'1px solid ' + (editMode ? '#ffd6d6' : '#e8ede9'), borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer'}}>
-                {editMode ? 'Annuler' : '✏️ Modifier'}
+                {editMode ? 'Annuler' : 'Modifier'}
               </button>
             </div>
-            {msg && <p style={{background: msg.includes('✅') ? '#e8f5ee' : '#fff1f0', color: msg.includes('✅') ? '#1a7a4a' : '#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'14px', border:'1px solid ' + (msg.includes('✅') ? '#b7dfca' : '#ffd6d6')}}>{msg}</p>}
+            {msg && <p style={{background:'#e8f5ee', color:'#1a7a4a', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'14px', border:'1px solid #b7dfca'}}>{msg}</p>}
 
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
               <div style={{gridColumn:'span 2'}}>
-                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>
-                  🔖 Username
-                </label>
+                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Username</label>
                 {editMode ? (
                   <div>
                     <div style={{display:'flex', alignItems:'center', border:'1px solid ' + (usernameError ? '#ffd6d6' : '#e8ede9'), borderRadius:'8px', overflow:'hidden', background:'#fafaf9'}}>
@@ -731,7 +745,7 @@ export default function ProfilPage() {
 
               {[
                 { label:'Nom complet', key:'full_name', placeholder:'Votre nom', icon:'👤' },
-                { label:'Téléphone', key:'phone', placeholder:'+250 780 000 000', icon:'📞' },
+                { label:'Telephone', key:'phone', placeholder:'+250 780 000 000', icon:'📞' },
                 { label:'Localisation', key:'location', placeholder:'Kigali, Rwanda', icon:'📍' },
               ].map(field => (
                 <div key={field.key} style={{gridColumn: field.key === 'full_name' ? 'span 2' : 'span 1'}}>
@@ -752,10 +766,10 @@ export default function ProfilPage() {
               ))}
 
               <div style={{gridColumn:'span 2'}}>
-                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>📧 Email</label>
+                <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Email</label>
                 <div style={{padding:'10px 12px', background:'#f5f7f5', borderRadius:'8px', fontSize:'0.88rem', color:'#6b7c6e', border:'1px solid #e8ede9', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                   <span>{user?.email}</span>
-                  <span style={{fontSize:'0.72rem', color:'#1a7a4a', fontWeight:600}}>Vérifié ✅</span>
+                  <span style={{fontSize:'0.72rem', color:'#1a7a4a', fontWeight:600}}>Verifie</span>
                 </div>
               </div>
             </div>
@@ -767,21 +781,20 @@ export default function ProfilPage() {
             )}
             <div style={{marginTop:'24px', paddingTop:'20px', borderTop:'1px solid #e8ede9'}}>
               <button onClick={handleLogout} style={{padding:'9px 20px', background:'#fff1f0', border:'1px solid #ffd6d6', borderRadius:'8px', color:'#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer'}}>
-                🚪 Se déconnecter
+                Se deconnecter
               </button>
             </div>
           </div>
         )}
 
-        {/* TAB: ABONNEMENT */}
         {activeTab === 'abonnement' && (
           <div>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px', color:'#111a14'}}>Choisir un abonnement</h2>
             <div className="plans-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
               {[
-                { name:'Gratuit', price:'0', period:'Pour toujours', color:'#6b7c6e', features:['5 annonces max','Photos limitées','Support standard'], current:true },
-                { name:'Pro', price:'15 000', period:'par mois', color:'#1a7a4a', features:['Annonces illimitées','5 photos par annonce','Badge Pro','1 boost par mois','Support prioritaire'], popular:true },
-                { name:'Agence', price:'50 000', period:'par mois', color:'#0f5233', features:['Tout du Pro','Page agence dédiée','5 boosts par mois','Dashboard avancé','Support dédié'] },
+                { name:'Gratuit', price:'0', period:'Pour toujours', color:'#6b7c6e', features:['5 annonces max','Photos limitees','Support standard'], current:true },
+                { name:'Pro', price:'15 000', period:'par mois', color:'#1a7a4a', features:['Annonces illimitees','5 photos par annonce','Badge Pro','1 boost par mois','Support prioritaire'], popular:true },
+                { name:'Agence', price:'50 000', period:'par mois', color:'#0f5233', features:['Tout du Pro','Page agence dediee','5 boosts par mois','Dashboard avance','Support dedie'] },
               ].map((plan, i) => (
                 <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: plan.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative'}}>
                   {plan.popular && <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', background:'#1a7a4a', color:'white', padding:'3px 12px', borderRadius:'20px', fontSize:'0.68rem', fontWeight:700, whiteSpace:'nowrap'}}>Le plus populaire</div>}
@@ -798,11 +811,10 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {/* TAB: BOOSTS */}
         {activeTab === 'boosts' && (
           <div>
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'6px', color:'#111a14'}}>Booster une annonce</h2>
-            <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'16px'}}>Un boost met votre annonce en tête de liste.</p>
+            <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'16px'}}>Un boost met votre annonce en tete de liste.</p>
             <div className="boost-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'20px'}}>
               {boostPlans.map((boost, i) => (
                 <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: boost.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative', textAlign:'center'}}>
@@ -818,27 +830,49 @@ export default function ProfilPage() {
           </div>
         )}
 
-        {/* TAB: ALERTES */}
         {activeTab === 'alertes' && user && (
           <AlertesTab userId={user.id} />
         )}
 
-        {/* TAB: STATS */}
         {activeTab === 'stats' && (
           <div style={{background:'white', borderRadius:'14px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
             <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📊</div>
-            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Statistiques avancées</h3>
-            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Disponible avec l'abonnement Pro</p>
+            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Statistiques avancees</h3>
+            <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Disponible avec l abonnement Pro</p>
             <button onClick={() => setActiveTab('abonnement')} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>Passer au Pro</button>
           </div>
         )}
 
-        {/* TAB: VENDUS */}
         {activeTab === 'vendus' && (
-          <div style={{background:'white', borderRadius:'14px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
-            <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>✅</div>
-            <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Aucune vente</h3>
-            <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos articles vendus apparaîtront ici</p>
+          <div>
+            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px', color:'#111a14'}}>Articles vendus</h2>
+            {ads.filter(a => a.is_sold).length === 0 ? (
+              <div style={{background:'white', borderRadius:'14px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
+                <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>✅</div>
+                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'8px', color:'#111a14'}}>Aucune vente</h3>
+                <p style={{color:'#6b7c6e', fontSize:'0.88rem'}}>Vos articles vendus apparaitront ici</p>
+              </div>
+            ) : (
+              <div className="ads-grid-3" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
+                {ads.filter(a => a.is_sold).map((ad: any) => (
+                  <div key={ad.id} style={{background:'white', borderRadius:'12px', overflow:'hidden', border:'1px solid #e8ede9', opacity:0.8}}>
+                    <div style={{height:'120px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2.5rem', position:'relative', overflow:'hidden'}}>
+                      {ad.images && ad.images.length > 0 ? (
+                        <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover', filter:'grayscale(30%)'}}/>
+                      ) : (
+                        <span style={{opacity:0.5}}>{catEmoji[ad.category] || '📦'}</span>
+                      )}
+                      <span style={{position:'absolute', top:'6px', left:'6px', background:'#f59e0b', color:'white', fontSize:'0.62rem', fontWeight:700, padding:'2px 7px', borderRadius:'5px'}}>VENDU</span>
+                    </div>
+                    <div style={{padding:'10px'}}>
+                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
+                      <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#6b7c6e', fontSize:'0.9rem', marginBottom:'4px'}}>{Number(ad.price).toLocaleString()} RWF</div>
+                      {ad.sold_at && <div style={{fontSize:'0.7rem', color:'#9ca3af'}}>Vendu le {new Date(ad.sold_at).toLocaleDateString('fr-FR')}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
