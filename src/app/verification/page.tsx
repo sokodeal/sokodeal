@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import Header from '@/components/Header'
 
@@ -8,12 +8,11 @@ export default function VerificationPage() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [verifying, setVerifying] = useState(false)
   const [docFile, setDocFile] = useState<File | null>(null)
   const [docPreview, setDocPreview] = useState<string | null>(null)
-  const [result, setResult] = useState<any>(null)
-  const [msg, setMsg] = useState('')
-  const [step, setStep] = useState<'upload' | 'verifying' | 'success' | 'failed'>('upload')
+  const [nationalId, setNationalId] = useState('')
+  const [step, setStep] = useState<'upload' | 'uploading' | 'success'>('upload')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -28,11 +27,7 @@ export default function VerificationPage() {
         .single()
 
       setProfile(userData)
-
-      if (userData?.is_verified) {
-        setStep('success')
-      }
-
+      if (userData?.is_verified) setStep('success')
       setLoading(false)
     }
     init()
@@ -45,280 +40,228 @@ export default function VerificationPage() {
     const reader = new FileReader()
     reader.onload = () => setDocPreview(reader.result as string)
     reader.readAsDataURL(file)
-    setMsg('')
-    setResult(null)
   }
 
   const handleVerify = async () => {
-    if (!docFile || !user) return
-    setVerifying(true)
-    setStep('verifying')
+    if (!docFile || !user || !nationalId.trim()) return
+    setUploading(true)
+    setStep('uploading')
 
     try {
-      // Upload du document
+      // 1. Upload la photo dans Storage
       const ext = docFile.name.split('.').pop()
-      const path = `identity/${user.id}/${Date.now()}.${ext}`
+      const filePath = `${user.id}/id-card.${ext}`
       const { error: uploadError } = await supabase.storage
-        .from('ads-images')
-        .upload(path, docFile)
+        .from('id-documents')
+        .upload(filePath, docFile, { upsert: true })
+      if (uploadError) throw uploadError
 
-      if (uploadError) {
-        setMsg('Erreur upload : ' + uploadError.message)
-        setStep('upload')
-        setVerifying(false)
-        return
-      }
-
-      const { data: urlData } = supabase.storage.from('ads-images').getPublicUrl(path)
-      const docUrl = urlData.publicUrl
-
-      // Convertir l'image en base64 pour l'API
-      const base64 = docPreview?.split(',')[1]
-      if (!base64) {
-        setMsg('Erreur lecture image')
-        setStep('upload')
-        setVerifying(false)
-        return
-      }
-
-      // Appel API Anthropic pour lire le document
-      const response = await fetch('/api/verify-identity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          mediaType: docFile.type,
-          userName: profile?.full_name || '',
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.verified) {
-        // Marquer comme verifie dans Supabase
-        await supabase.from('users').update({
-          is_verified: true,
-          id_document_url: docUrl,
+      // 2. Mettre à jour le profil : vérifié immédiatement
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          national_id: nationalId,
+          id_document_url: filePath,
           id_verification_status: 'verified',
-        }).eq('id', user.id)
+          is_verified: true,
+        })
+        .eq('id', user.id)
+      if (updateError) throw updateError
 
-        setStep('success')
-      } else {
-        await supabase.from('users').update({
-          id_document_url: docUrl,
-          id_verification_status: 'failed',
-        }).eq('id', user.id)
-
-        setResult(data)
-        setStep('failed')
-      }
-    } catch (err) {
-      setMsg('Erreur inattendue. Reessayez.')
+      setStep('success')
+    } catch (err: any) {
+      console.error(err)
+      alert('Erreur lors de l\'upload. Réessayez.')
       setStep('upload')
+    } finally {
+      setUploading(false)
     }
-
-    setVerifying(false)
   }
 
   if (loading) return (
-    <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f7f5'}}>
-      <p style={{fontFamily:'Syne,sans-serif', color:'#1a7a4a', fontWeight:700}}>Chargement...</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7f5' }}>
+      <p style={{ fontFamily: 'Syne,sans-serif', color: '#1a7a4a', fontWeight: 700 }}>Chargement...</p>
     </div>
   )
 
   return (
-    <div style={{minHeight:'100vh', background:'#f5f7f5'}}>
-
+    <div style={{ minHeight: '100vh', background: '#f5f7f5' }}>
       <Header />
 
-      <div style={{maxWidth:'560px', margin:'32px auto', padding:'0 5% 60px'}}>
+      <div style={{ maxWidth: '520px', margin: '32px auto', padding: '0 5% 60px' }}>
 
-        {/* ETAPES */}
-        <div style={{display:'flex', alignItems:'center', gap:'0', marginBottom:'28px'}}>
-          {['Document', 'Verification', 'Confirme'].map((label, i) => {
-            const stepIndex = step === 'upload' ? 0 : step === 'verifying' ? 1 : 2
+        {/* Progress steps */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
+          {['Document', 'Upload', 'Confirmé'].map((label, i) => {
+            const stepIndex = step === 'upload' ? 0 : step === 'uploading' ? 1 : 2
             const done = i < stepIndex
             const active = i === stepIndex
             return (
-              <div key={i} style={{display:'flex', alignItems:'center', flex: i < 2 ? 1 : 'none'}}>
-                <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'4px'}}>
-                  <div style={{width:'32px', height:'32px', borderRadius:'50%', background: done ? '#1a7a4a' : active ? '#f5a623' : '#e8ede9', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.8rem', fontWeight:800, color: done || active ? 'white' : '#6b7c6e'}}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : 'none' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: done ? '#1a7a4a' : active ? '#f5a623' : '#e8ede9',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.8rem', fontWeight: 800,
+                    color: done || active ? 'white' : '#6b7c6e'
+                  }}>
                     {done ? '✓' : i + 1}
                   </div>
-                  <span style={{fontSize:'0.68rem', color: active ? '#111a14' : '#6b7c6e', fontWeight: active ? 700 : 400, whiteSpace:'nowrap'}}>{label}</span>
+                  <span style={{ fontSize: '0.68rem', color: active ? '#111a14' : '#6b7c6e', fontWeight: active ? 700 : 400, whiteSpace: 'nowrap' }}>
+                    {label}
+                  </span>
                 </div>
-                {i < 2 && <div style={{flex:1, height:'2px', background: done ? '#1a7a4a' : '#e8ede9', margin:'0 8px', marginBottom:'18px'}} />}
+                {i < 2 && <div style={{ flex: 1, height: '2px', background: done ? '#1a7a4a' : '#e8ede9', margin: '0 8px', marginBottom: '18px' }} />}
               </div>
             )
           })}
         </div>
 
-        {/* STEP: SUCCESS */}
+        {/* ── SUCCESS ── */}
         {step === 'success' && (
-          <div style={{background:'white', borderRadius:'16px', padding:'40px', border:'1px solid #e8ede9', textAlign:'center'}}>
-            <div style={{width:'72px', height:'72px', background:'#e8f5ee', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', margin:'0 auto 16px'}}>✅</div>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.3rem', marginBottom:'8px', color:'#111a14'}}>
-              Identite verifiee !
+          <div style={{ background: 'white', borderRadius: '16px', padding: '40px', border: '1px solid #e8ede9', textAlign: 'center' }}>
+            <div style={{ width: '72px', height: '72px', background: '#e8f5ee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px' }}>✅</div>
+            <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '8px', color: '#111a14' }}>
+              Identité vérifiée !
             </h2>
-            <p style={{color:'#6b7c6e', marginBottom:'24px', fontSize:'0.88rem', lineHeight:1.6}}>
-              Votre compte est maintenant verifie. Le badge ✅ apparait sur votre profil et vous pouvez publier des annonces.
+            <p style={{ color: '#6b7c6e', marginBottom: '24px', fontSize: '0.88rem', lineHeight: 1.6 }}>
+              Votre compte est maintenant vérifié. Le badge ✅ apparaît sur votre profil et vous pouvez publier des annonces.
             </p>
-            <button onClick={() => window.location.href='/publier'} style={{width:'100%', padding:'13px', background:'#1a7a4a', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'white', cursor:'pointer', marginBottom:'10px'}}>
+            <button onClick={() => window.location.href = '/publier'}
+              style={{ width: '100%', padding: '13px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer', marginBottom: '10px' }}>
               Publier une annonce
             </button>
-            <button onClick={() => window.location.href='/profil'} style={{width:'100%', padding:'13px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'10px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', cursor:'pointer'}}>
+            <button onClick={() => window.location.href = '/profil'}
+              style={{ width: '100%', padding: '13px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.88rem', color: '#6b7c6e', cursor: 'pointer' }}>
               Mon profil
             </button>
           </div>
         )}
 
-        {/* STEP: FAILED */}
-        {step === 'failed' && (
-          <div style={{background:'white', borderRadius:'16px', padding:'40px', border:'1px solid #ffd6d6', textAlign:'center'}}>
-            <div style={{width:'72px', height:'72px', background:'#fff1f0', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', margin:'0 auto 16px'}}>❌</div>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px', color:'#111a14'}}>
-              Verification echouee
+        {/* ── UPLOADING ── */}
+        {step === 'uploading' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '48px', border: '1px solid #e8ede9', textAlign: 'center' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>📤</div>
+            <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '8px', color: '#111a14' }}>
+              Upload en cours...
             </h2>
-            <p style={{color:'#6b7c6e', marginBottom:'16px', fontSize:'0.88rem', lineHeight:1.6}}>
-              {result?.reason || 'Le nom sur le document ne correspond pas au nom de votre profil.'}
-            </p>
-            <div style={{background:'#fff1f0', borderRadius:'10px', padding:'14px', marginBottom:'20px', border:'1px solid #ffd6d6', textAlign:'left'}}>
-              <p style={{fontSize:'0.82rem', color:'#c0392b', marginBottom:'6px', fontWeight:600}}>Raisons possibles :</p>
-              <div style={{fontSize:'0.78rem', color:'#c0392b'}}>
-                <div>• Le nom sur votre profil ne correspond pas exactement au document</div>
-                <div>• Le document est illisible ou mal cadre</div>
-                <div>• Le document n est pas un document d identite valide</div>
-              </div>
-            </div>
-            <button onClick={() => { setStep('upload'); setDocFile(null); setDocPreview(null); setResult(null) }}
-              style={{width:'100%', padding:'13px', background:'#1a7a4a', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'white', cursor:'pointer', marginBottom:'10px'}}>
-              Reessayer
-            </button>
-            <a href="/profil" style={{display:'block', padding:'13px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'10px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#6b7c6e', textDecoration:'none', textAlign:'center'}}>
-              Modifier mon nom de profil
-            </a>
-          </div>
-        )}
-
-        {/* STEP: VERIFYING */}
-        {step === 'verifying' && (
-          <div style={{background:'white', borderRadius:'16px', padding:'48px', border:'1px solid #e8ede9', textAlign:'center'}}>
-            <div style={{width:'64px', height:'64px', background:'#e8f5ee', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.8rem', margin:'0 auto 16px'}}>
-              🔍
-            </div>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px', color:'#111a14'}}>
-              Verification en cours...
-            </h2>
-            <p style={{color:'#6b7c6e', fontSize:'0.88rem', lineHeight:1.6}}>
-              Claude analyse votre document et compare le nom avec votre profil. Cela prend quelques secondes.
-            </p>
-            <div style={{marginTop:'24px', display:'flex', justifyContent:'center', gap:'8px'}}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{width:'10px', height:'10px', background:'#1a7a4a', borderRadius:'50%', animation:`bounce 1s ease-in-out ${i * 0.2}s infinite`}} />
+            <p style={{ color: '#6b7c6e', fontSize: '0.88rem' }}>Quelques secondes...</p>
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: '10px', height: '10px', background: '#1a7a4a', borderRadius: '50%', animation: `bounce 1s ease-in-out ${i * 0.2}s infinite` }} />
               ))}
             </div>
-            <style>{`
-              @keyframes bounce {
-                0%, 100% { transform: translateY(0); opacity: 0.4; }
-                50% { transform: translateY(-8px); opacity: 1; }
-              }
-            `}</style>
+            <style>{`@keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-8px);opacity:1} }`}</style>
           </div>
         )}
 
-        {/* STEP: UPLOAD */}
+        {/* ── UPLOAD FORM ── */}
         {step === 'upload' && (
           <div>
-            <div style={{background:'white', borderRadius:'16px', padding:'28px', border:'1px solid #e8ede9', marginBottom:'14px'}}>
-              <h1 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'6px', color:'#111a14'}}>
-                Verification d identite
+            <div style={{ background: 'white', borderRadius: '16px', padding: '28px', border: '1px solid #e8ede9', marginBottom: '14px' }}>
+              <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '6px', color: '#111a14' }}>
+                Vérification d'identité
               </h1>
-              <p style={{color:'#6b7c6e', fontSize:'0.85rem', lineHeight:1.6, marginBottom:'20px'}}>
-                Pour publier des annonces sur SokoDeal, vous devez verifier votre identite. Uploadez une photo de votre CNI, passeport ou permis de conduire.
+              <p style={{ color: '#6b7c6e', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '20px' }}>
+                Uploadez votre carte nationale d'identité pour activer votre compte instantanément.
               </p>
 
-              {/* INFO NOM */}
-              <div style={{background:'#e8f5ee', borderRadius:'10px', padding:'12px 14px', marginBottom:'20px', border:'1px solid #b7dfca'}}>
-                <p style={{fontSize:'0.82rem', color:'#1a7a4a', fontWeight:600, marginBottom:'3px'}}>Nom sur votre profil :</p>
-                <p style={{fontSize:'0.9rem', color:'#111a14', fontWeight:800, fontFamily:'Syne,sans-serif'}}>
-                  {profile?.full_name || 'Non renseigne'}
-                </p>
-                {!profile?.full_name && (
-                  <p style={{fontSize:'0.75rem', color:'#c0392b', marginTop:'6px'}}>
-                    Ajoutez votre nom complet dans votre profil avant de continuer.
-                  </p>
-                )}
+              {/* Champ numéro CNI */}
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
+                  Numéro de carte nationale
+                </label>
+                <input
+                  type="text"
+                  placeholder="1 1990 7 0000000 1 00"
+                  value={nationalId}
+                  onChange={e => setNationalId(e.target.value)}
+                  style={{
+                    width: '100%', padding: '11px 14px',
+                    border: '1.5px solid #e0e0e0', borderRadius: '10px',
+                    fontFamily: 'DM Sans,sans-serif', fontSize: '0.9rem',
+                    outline: 'none', background: '#fafafa', color: '#222',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
 
-              {/* UPLOAD ZONE */}
-              <label style={{display:'block', cursor:'pointer'}}>
-                <div style={{border:'2px dashed #e8ede9', borderRadius:'12px', padding:'32px', textAlign:'center', background:'#fafaf9', transition:'border-color 0.2s'}}>
-                  {docPreview ? (
-                    <div>
-                      <img src={docPreview} alt="Document" style={{maxWidth:'100%', maxHeight:'200px', objectFit:'contain', borderRadius:'8px', marginBottom:'12px'}} />
-                      <p style={{fontSize:'0.82rem', color:'#1a7a4a', fontWeight:600}}>{docFile?.name}</p>
-                      <p style={{fontSize:'0.75rem', color:'#6b7c6e', marginTop:'4px'}}>Cliquez pour changer</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>📄</div>
-                      <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.9rem', color:'#111a14', marginBottom:'6px'}}>
-                        Uploader votre document
-                      </p>
-                      <p style={{fontSize:'0.78rem', color:'#6b7c6e'}}>
-                        CNI, Passeport ou Permis de conduire
-                      </p>
-                      <p style={{fontSize:'0.72rem', color:'#9ca3af', marginTop:'6px'}}>
-                        JPG, PNG ou PDF - Max 10MB
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <input type="file" accept="image/*,.pdf" onChange={handleFileChange} style={{display:'none'}} />
+              {/* Upload zone */}
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
+                Photo de votre carte d'identité
               </label>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${docPreview ? '#1a7a4a' : '#e8ede9'}`,
+                  borderRadius: '12px', padding: docPreview ? '8px' : '32px',
+                  textAlign: 'center', background: '#fafaf9', cursor: 'pointer',
+                  transition: 'border-color 0.2s', marginBottom: '10px'
+                }}
+              >
+                {docPreview ? (
+                  <div>
+                    <img src={docPreview} alt="Document" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px', marginBottom: '8px' }} />
+                    <p style={{ fontSize: '0.78rem', color: '#1a7a4a', fontWeight: 600 }}>Appuyez pour changer</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: '2.2rem', marginBottom: '10px' }}>📷</div>
+                    <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.88rem', color: '#111a14', marginBottom: '4px' }}>
+                      Prendre une photo
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>JPG, PNG — Max 5MB</p>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
 
-              {msg && (
-                <div style={{background:'#fff1f0', color:'#c0392b', padding:'10px', borderRadius:'8px', fontSize:'0.82rem', marginTop:'12px', border:'1px solid #ffd6d6'}}>
-                  {msg}
-                </div>
-              )}
+              {/* Note sécurité */}
+              <div style={{ background: '#f0f8f4', borderRadius: '10px', padding: '11px 14px', marginTop: '16px', marginBottom: '20px' }}>
+                <p style={{ fontSize: '0.78rem', color: '#4a6b57' }}>
+                  🔒 Vos données sont stockées de manière sécurisée et ne sont jamais partagées.
+                </p>
+              </div>
+
+              <button
+                onClick={handleVerify}
+                disabled={!docFile || !nationalId.trim() || uploading}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: !docFile || !nationalId.trim() ? '#e8ede9' : '#1a7a4a',
+                  border: 'none', borderRadius: '12px',
+                  fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem',
+                  color: !docFile || !nationalId.trim() ? '#6b7c6e' : 'white',
+                  cursor: !docFile || !nationalId.trim() ? 'not-allowed' : 'pointer'
+                }}>
+                ✅ Vérifier mon identité
+              </button>
             </div>
 
-            {/* CONSEILS */}
-            <div style={{background:'#fffbeb', borderRadius:'12px', padding:'16px', border:'1px solid #fde68a', marginBottom:'16px'}}>
-              <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'10px', color:'#78350f'}}>
-                Conseils pour une verification reussie
+            {/* Conseils */}
+            <div style={{ background: '#fffbeb', borderRadius: '12px', padding: '16px', border: '1px solid #fde68a' }}>
+              <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', marginBottom: '10px', color: '#78350f' }}>
+                Conseils pour une vérification réussie
               </h3>
               {[
-                'Assurez-vous que le document est bien eclaire et lisible',
-                'Le nom sur le document doit correspondre exactement a votre nom de profil',
-                'Evitez les reflets et les zones floues',
-                'Le document doit etre entier et non coupe',
+                'Document bien éclairé et entier',
+                'Évitez les reflets et zones floues',
+                'Recto de la carte suffisant',
+                'Photo nette, pas de document froissé',
               ].map((tip, i) => (
-                <div key={i} style={{display:'flex', gap:'8px', marginBottom:'6px', fontSize:'0.78rem', color:'#78350f'}}>
-                  <span style={{fontWeight:700, flexShrink:0}}>✓</span> {tip}
+                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '5px', fontSize: '0.78rem', color: '#78350f' }}>
+                  <span style={{ fontWeight: 700 }}>✓</span> {tip}
                 </div>
               ))}
             </div>
-
-            <button
-              onClick={handleVerify}
-              disabled={!docFile || verifying || !profile?.full_name}
-              style={{
-                width:'100%', padding:'14px',
-                background: !docFile || !profile?.full_name ? '#e8ede9' : '#1a7a4a',
-                border:'none', borderRadius:'12px', fontFamily:'Syne,sans-serif', fontWeight:800,
-                fontSize:'0.95rem', color: !docFile || !profile?.full_name ? '#6b7c6e' : 'white',
-                cursor: !docFile || !profile?.full_name ? 'not-allowed' : 'pointer'
-              }}>
-              {verifying ? 'Verification...' : 'Verifier mon identite'}
-            </button>
-
-            {!profile?.full_name && (
-              <button onClick={() => window.location.href='/profil'} style={{width:'100%', marginTop:'10px', padding:'12px', background:'#f5a623', border:'none', borderRadius:'12px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'#111a14', cursor:'pointer'}}>
-                Ajouter mon nom dans mon profil
-              </button>
-            )}
           </div>
         )}
       </div>
