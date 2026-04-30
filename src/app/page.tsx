@@ -196,6 +196,7 @@ export default function Home() {
           .deposer-btn { padding: 7px 12px !important; font-size: 0.8rem !important; }
           .hero-section { padding: 36px 4% 32px !important; }
           .mon-compte-label { display: none !important; }
+          .search-bar { display: none !important; }
           .save-search-btn { display: none !important; }
         }
         @media (max-width: 480px) {
@@ -230,7 +231,7 @@ export default function Home() {
             <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.25rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
           </a>
 
-          <div style={{flex:1, maxWidth:'480px', position:'relative'}}>
+          <div className="search-bar" style={{flex:1, maxWidth:'480px', position:'relative'}}>
             <div style={{display:'flex', background:'#f5f7f5', borderRadius:'9px', overflow:'hidden', border:'1px solid #e8ede9'}}>
               <input type="text" placeholder="Rechercher... ou @username" value={search}
                 onChange={e => { setSearch(e.target.value); setActiveSection('main') }}
