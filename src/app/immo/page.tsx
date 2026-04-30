@@ -19,8 +19,6 @@ const QUARTIERS = [
   'Kanombe', 'Niboye', 'Kagarama', 'Masaka'
 ]
 
-const CHAMBRES = ['Tous', '1', '2', '3', '4', '5+']
-
 export default function ImmoPage() {
   const mapContainer = useRef<any>(null)
   const map = useRef<any>(null)
@@ -35,10 +33,8 @@ export default function ImmoPage() {
 
   const [filterCat, setFilterCat] = useState('')
   const [filterQuartier, setFilterQuartier] = useState('Tous')
-  const [filterChambres, setFilterChambres] = useState('Tous')
   const [filterPriceMin, setFilterPriceMin] = useState('')
   const [filterPriceMax, setFilterPriceMax] = useState('')
-  const [filterMeuble, setFilterMeuble] = useState(false)
   const [sortBy, setSortBy] = useState('recent')
   const [search, setSearch] = useState('')
 
@@ -55,7 +51,6 @@ export default function ImmoPage() {
         .order('created_at', { ascending: false })
 
       if (data) {
-        // Ajouter des coordonnées fictives basées sur le quartier pour la démo
         const adsWithCoords = data.map(ad => ({
           ...ad,
           lng: 30.0619 + (Math.random() - 0.5) * 0.08,
@@ -69,9 +64,8 @@ export default function ImmoPage() {
     init()
   }, [])
 
-  // Init carte
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current || map.current || !showMap) return
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
@@ -81,7 +75,6 @@ export default function ImmoPage() {
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
   }, [showMap])
 
-  // Markers sur la carte
   useEffect(() => {
     if (!map.current) return
     markers.current.forEach(m => m.remove())
@@ -111,9 +104,8 @@ export default function ImmoPage() {
         .addTo(map.current)
       markers.current.push(marker)
     })
-  }, [filtered, map.current])
+  }, [filtered])
 
-  // Filtres
   useEffect(() => {
     let result = [...ads]
     if (search) result = result.filter(ad => ad.title?.toLowerCase().includes(search.toLowerCase()) || ad.description?.toLowerCase().includes(search.toLowerCase()))
@@ -125,7 +117,7 @@ export default function ImmoPage() {
     else if (sortBy === 'prix-desc') result.sort((a, b) => b.price - a.price)
     else result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     setFiltered(result)
-  }, [search, filterCat, filterQuartier, filterPriceMin, filterPriceMax, filterMeuble, sortBy, ads])
+  }, [search, filterCat, filterQuartier, filterPriceMin, filterPriceMax, sortBy, ads])
 
   const catLabel: any = {
     'immo-vente': 'Vente',
@@ -145,9 +137,10 @@ export default function ImmoPage() {
         .mapboxgl-map { border-radius: 0; }
         .immo-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important; }
         .immo-card { transition: transform 0.18s, box-shadow 0.18s; }
+        .map-panel { transition: width 0.3s ease, opacity 0.3s ease; }
         @media (max-width: 768px) {
           .immo-layout { flex-direction: column !important; }
-          .immo-map { height: 300px !important; }
+          .map-panel { width: 100% !important; height: 300px !important; position: static !important; }
         }
       `}</style>
 
@@ -165,8 +158,8 @@ export default function ImmoPage() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={() => setShowMap(!showMap)}
-              style={{ padding: '7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
-              {showMap ? '📋 Liste' : '🗺️ Carte'}
+              style={{ padding: '7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {showMap ? '📋 Masquer la carte' : '🗺️ Afficher la carte'}
             </button>
             {user ? (
               <button onClick={() => window.location.href = '/profil'} style={{ padding: '7px 14px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -191,10 +184,9 @@ export default function ImmoPage() {
             Trouvez votre bien immobilier au Rwanda
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginBottom: '20px' }}>
-            {filtered.length} bien(s) disponible(s) — Vente, location et terrains
+            {filtered.length} bien(s) disponible(s)
           </p>
 
-          {/* BARRE RECHERCHE */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '200px', display: 'flex', background: 'white', borderRadius: '10px', overflow: 'hidden' }}>
               <input
@@ -206,7 +198,6 @@ export default function ImmoPage() {
               />
               <button style={{ background: '#f5a623', border: 'none', padding: '12px 18px', cursor: 'pointer', fontSize: '1rem' }}>🔍</button>
             </div>
-
             {CATEGORIES_IMMO.map(cat => (
               <button key={cat.value} onClick={() => setFilterCat(cat.value)}
                 style={{ padding: '12px 18px', background: filterCat === cat.value ? 'white' : 'rgba(255,255,255,0.15)', color: filterCat === cat.value ? '#1a7a4a' : 'white', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
@@ -217,13 +208,12 @@ export default function ImmoPage() {
         </div>
       </div>
 
-      {/* FILTRES AVANCES */}
+      {/* FILTRES */}
       <div style={{ background: 'white', borderBottom: '1px solid #e8ede9', padding: '12px 5%' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-
           <select value={filterQuartier} onChange={e => setFilterQuartier(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', outline: 'none', background: 'white', cursor: 'pointer', color: '#111a14' }}>
-            {QUARTIERS.map(q => <option key={q} value={q}>{q === 'Tous' ? '📍 Quartier' : q}</option>)}
+            {QUARTIERS.map(q => <option key={q} value={q}>{q === 'Tous' ? 'Quartier' : q}</option>)}
           </select>
 
           <input type="number" placeholder="Prix min (RWF)" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)}
@@ -250,8 +240,8 @@ export default function ImmoPage() {
         </div>
       </div>
 
-      {/* LAYOUT PRINCIPAL */}
-      <div className="immo-layout" style={{ display: 'flex', flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%', padding: '16px 5%', gap: '16px' }}>
+      {/* LAYOUT */}
+      <div className="immo-layout" style={{ display: 'flex', flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%', padding: '16px 5%', gap: showMap ? '16px' : '0' }}>
 
         {/* LISTE */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -264,96 +254,106 @@ export default function ImmoPage() {
               <p style={{ color: '#6b7c6e', fontSize: '0.88rem' }}>Modifiez vos filtres ou publiez une annonce</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: showMap ? '1fr' : 'repeat(3, 1fr)', gap: '12px' }}>
               {filtered.map((ad: any) => (
-                <div key={ad.id} className="immo-card"
-                  onClick={() => { setSelectedAd(ad); if (map.current) map.current.flyTo({ center: [ad.lng, ad.lat], zoom: 15 }) }}
-                  style={{ background: 'white', borderRadius: '14px', overflow: 'hidden', cursor: 'pointer', border: selectedAd?.id === ad.id ? '2px solid #1a7a4a' : '1px solid #e8ede9', display: 'flex', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-
-                  {/* IMAGE */}
-                  <div style={{ width: '200px', minHeight: '140px', background: '#f5f7f5', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', overflow: 'hidden', position: 'relative' }}>
-                    {ad.images && ad.images.length > 0 ? (
-                      <img src={ad.images[0]} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ opacity: 0.4 }}>🏡</span>
-                    )}
-                    <div style={{ position: 'absolute', top: '8px', left: '8px', background: catColor[ad.category] || '#6b7c6e', color: 'white', padding: '3px 8px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700 }}>
-                      {catLabel[ad.category] || ad.category}
-                    </div>
-                  </div>
-
-                  {/* INFOS */}
-                  <div style={{ flex: 1, padding: '16px', minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.95rem', color: '#111a14', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                        {ad.title}
-                      </h3>
-                      <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#0f5233', flexShrink: 0 }}>
-                        {Number(ad.price).toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e' }}>RWF</span>
-                        {ad.category === 'immo-location' && <span style={{ fontSize: '0.65rem', color: '#6b7c6e' }}>/mois</span>}
+                showMap ? (
+                  // VUE LISTE AVEC CARTE
+                  <div key={ad.id} className="immo-card"
+                    onClick={() => { setSelectedAd(ad); if (map.current) map.current.flyTo({ center: [ad.lng, ad.lat], zoom: 15 }) }}
+                    style={{ background: 'white', borderRadius: '14px', overflow: 'hidden', cursor: 'pointer', border: selectedAd?.id === ad.id ? '2px solid #1a7a4a' : '1px solid #e8ede9', display: 'flex', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <div style={{ width: '180px', minHeight: '130px', background: '#f5f7f5', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', overflow: 'hidden', position: 'relative' }}>
+                      {ad.images && ad.images.length > 0 ? (
+                        <img src={ad.images[0]} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ opacity: 0.4 }}>🏡</span>
+                      )}
+                      <div style={{ position: 'absolute', top: '8px', left: '8px', background: catColor[ad.category] || '#6b7c6e', color: 'white', padding: '3px 8px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700 }}>
+                        {catLabel[ad.category] || ad.category}
                       </div>
                     </div>
-
-                    {ad.province && (
-                      <div style={{ fontSize: '0.78rem', color: '#6b7c6e', marginBottom: '8px' }}>
-                        📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
+                    <div style={{ flex: 1, padding: '14px', minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                        <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.9rem', color: '#111a14', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+                          {ad.title}
+                        </h3>
+                        <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1rem', color: '#0f5233', flexShrink: 0 }}>
+                          {Number(ad.price).toLocaleString()} <span style={{ fontSize: '0.7rem', color: '#6b7c6e' }}>RWF</span>
+                          {ad.category === 'immo-location' && <span style={{ fontSize: '0.62rem', color: '#6b7c6e' }}>/mois</span>}
+                        </div>
                       </div>
-                    )}
-
-                    {ad.description && (
-                      <p style={{ fontSize: '0.78rem', color: '#6b7c6e', margin: '0 0 10px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {ad.description}
-                      </p>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {ad.province && <div style={{ fontSize: '0.75rem', color: '#6b7c6e', marginBottom: '6px' }}>📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}</div>}
+                      {ad.description && <p style={{ fontSize: '0.75rem', color: '#6b7c6e', margin: '0 0 10px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ad.description}</p>}
                       <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + ad.id }}
-                        style={{ padding: '6px 14px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+                        style={{ padding: '6px 14px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
                         Voir le bien
                       </button>
-                      <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>
-                        {new Date(ad.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </span>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // VUE GRILLE SANS CARTE
+                  <div key={ad.id} className="immo-card"
+                    onClick={() => window.location.href = '/annonce/' + ad.id}
+                    style={{ background: 'white', borderRadius: '14px', overflow: 'hidden', cursor: 'pointer', border: '1px solid #e8ede9', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <div style={{ height: '180px', background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', overflow: 'hidden', position: 'relative' }}>
+                      {ad.images && ad.images.length > 0 ? (
+                        <img src={ad.images[0]} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ opacity: 0.4 }}>🏡</span>
+                      )}
+                      <div style={{ position: 'absolute', top: '8px', left: '8px', background: catColor[ad.category] || '#6b7c6e', color: 'white', padding: '3px 8px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700 }}>
+                        {catLabel[ad.category] || ad.category}
+                      </div>
+                    </div>
+                    <div style={{ padding: '14px' }}>
+                      <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.9rem', color: '#111a14', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ad.title}
+                      </h3>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1rem', color: '#0f5233', marginBottom: '6px' }}>
+                        {Number(ad.price).toLocaleString()} <span style={{ fontSize: '0.7rem', color: '#6b7c6e' }}>RWF</span>
+                        {ad.category === 'immo-location' && <span style={{ fontSize: '0.62rem', color: '#6b7c6e' }}>/mois</span>}
+                      </div>
+                      {ad.province && <div style={{ fontSize: '0.75rem', color: '#6b7c6e', marginBottom: '10px' }}>📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}</div>}
+                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + ad.id }}
+                        style={{ width: '100%', padding: '8px', background: '#f5f7f5', color: '#0f5233', border: '1px solid #d4e6da', borderRadius: '8px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+                        Voir le bien
+                      </button>
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           )}
         </div>
 
         {/* CARTE */}
-        {showMap && (
-          <div style={{ width: '480px', flexShrink: 0, position: 'sticky', top: '74px', height: 'calc(100vh - 90px)' }}>
-            <div ref={mapContainer} className="immo-map" style={{ width: '100%', height: '100%', borderRadius: '14px', overflow: 'hidden', border: '1px solid #e8ede9' }} />
+        <div className="map-panel" style={{ width: showMap ? '480px' : '0px', flexShrink: 0, position: 'sticky', top: '74px', height: 'calc(100vh - 90px)', overflow: 'hidden', transition: 'width 0.3s ease' }}>
+          <div ref={mapContainer} style={{ width: '100%', height: '100%', borderRadius: '14px', overflow: 'hidden', border: '1px solid #e8ede9' }} />
 
-            {/* POPUP ANNONCE SELECTIONNEE */}
-            {selectedAd && (
-              <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e8ede9' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                    {selectedAd.images?.[0] ? <img src={selectedAd.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏡'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedAd.title}</div>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, color: '#0f5233', fontSize: '0.9rem' }}>{Number(selectedAd.price).toLocaleString()} RWF</div>
-                    {selectedAd.province && <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>📍 {selectedAd.province}</div>}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                    <button onClick={() => window.location.href = '/annonce/' + selectedAd.id}
-                      style={{ padding: '6px 12px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
-                      Voir
-                    </button>
-                    <button onClick={() => setSelectedAd(null)}
-                      style={{ padding: '6px 12px', background: '#f5f7f5', color: '#6b7c6e', border: '1px solid #e8ede9', borderRadius: '7px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
-                      Fermer
-                    </button>
-                  </div>
+          {selectedAd && showMap && (
+            <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e8ede9' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                  {selectedAd.images?.[0] ? <img src={selectedAd.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏡'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedAd.title}</div>
+                  <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, color: '#0f5233', fontSize: '0.9rem' }}>{Number(selectedAd.price).toLocaleString()} RWF</div>
+                  {selectedAd.province && <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>📍 {selectedAd.province}</div>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+                  <button onClick={() => window.location.href = '/annonce/' + selectedAd.id}
+                    style={{ padding: '6px 12px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
+                    Voir
+                  </button>
+                  <button onClick={() => setSelectedAd(null)}
+                    style={{ padding: '6px 12px', background: '#f5f7f5', color: '#6b7c6e', border: '1px solid #e8ede9', borderRadius: '7px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                    Fermer
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
