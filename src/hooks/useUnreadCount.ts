@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function useUnreadCount() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [userId, setUserId] = useState<string | null>(null)
+
+  const loadCount = useCallback(async (uid: string) => {
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', uid)
+      .eq('is_read', false)
+    setUnreadCount(count || 0)
+  }, [])
 
   useEffect(() => {
     const init = async () => {
@@ -12,8 +21,8 @@ export function useUnreadCount() {
       setUserId(user.id)
       await loadCount(user.id)
 
-      // Temps réel — nouveau message recu
-      const ch = supabase.channel('unread-' + user.id.slice(0, 8))
+      // Nouveau message recu
+      const ch = supabase.channel('unread-badge-' + user.id.slice(0, 8))
       ch.on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -25,25 +34,22 @@ export function useUnreadCount() {
         event: 'UPDATE',
         schema: 'public',
         table: 'messages',
-        filter: 'receiver_id=eq.' + user.id,
       }, () => {
-        // Recharger le count quand un message est marqué comme lu
+        // Recharger le count a chaque UPDATE
         loadCount(user.id)
       }).subscribe()
 
-      return () => { supabase.removeChannel(ch) }
+      // Recharger quand on revient sur la page
+      const handleFocus = () => loadCount(user.id)
+      window.addEventListener('focus', handleFocus)
+
+      return () => {
+        supabase.removeChannel(ch)
+        window.removeEventListener('focus', handleFocus)
+      }
     }
     init()
-  }, [])
+  }, [loadCount])
 
-  const loadCount = async (uid: string) => {
-    const { count } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('receiver_id', uid)
-      .eq('is_read', false)
-    setUnreadCount(count || 0)
-  }
-
-  return { unreadCount, reload: () => userId && loadCount(userId) }
+  return { unreadCount }
 }
