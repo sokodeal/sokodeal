@@ -46,12 +46,21 @@ export default function PublierPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/auth?mode=login'; return }
 
-    // Vérifier limite plan gratuit
+    // Vérifier identité
     const { data: userData } = await supabase
       .from('users')
-      .select('plan')
+      .select('plan, is_verified')
       .eq('id', user.id)
       .single()
+
+    if (!userData?.is_verified) {
+      setLoading(false)
+      setMsg('🔒 Vous devez vérifier votre identité avant de publier une annonce.')
+      setTimeout(() => window.location.href = '/verification', 2000)
+      return
+    }
+
+    // Vérifier limite plan gratuit
 
     const plan = userData?.plan || 'gratuit'
 

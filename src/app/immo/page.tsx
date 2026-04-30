@@ -1,0 +1,360 @@
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
+
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
+
+const CATEGORIES_IMMO = [
+  { value: '', label: 'Tout' },
+  { value: 'immo-vente', label: '🏡 Vente' },
+  { value: 'immo-location', label: '🏢 Location' },
+  { value: 'immo-terrain', label: '🌿 Terrain' },
+]
+
+const QUARTIERS = [
+  'Tous', 'Kicukiro', 'Nyarugenge', 'Gasabo', 'Kimironko',
+  'Remera', 'Gikondo', 'Nyamirambo', 'Kibagabaga', 'Gisozi',
+  'Kanombe', 'Niboye', 'Kagarama', 'Masaka'
+]
+
+const CHAMBRES = ['Tous', '1', '2', '3', '4', '5+']
+
+export default function ImmoPage() {
+  const mapContainer = useRef<any>(null)
+  const map = useRef<any>(null)
+  const markers = useRef<any[]>([])
+
+  const [ads, setAds] = useState<any[]>([])
+  const [filtered, setFiltered] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [selectedAd, setSelectedAd] = useState<any>(null)
+  const [showMap, setShowMap] = useState(true)
+
+  const [filterCat, setFilterCat] = useState('')
+  const [filterQuartier, setFilterQuartier] = useState('Tous')
+  const [filterChambres, setFilterChambres] = useState('Tous')
+  const [filterPriceMin, setFilterPriceMin] = useState('')
+  const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [filterMeuble, setFilterMeuble] = useState(false)
+  const [sortBy, setSortBy] = useState('recent')
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+
+      const { data } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('is_active', true)
+        .in('category', ['immo-vente', 'immo-location', 'immo-terrain'])
+        .order('created_at', { ascending: false })
+
+      if (data) {
+        // Ajouter des coordonnées fictives basées sur le quartier pour la démo
+        const adsWithCoords = data.map(ad => ({
+          ...ad,
+          lng: 30.0619 + (Math.random() - 0.5) * 0.08,
+          lat: -1.9441 + (Math.random() - 0.5) * 0.08,
+        }))
+        setAds(adsWithCoords)
+        setFiltered(adsWithCoords)
+      }
+      setLoading(false)
+    }
+    init()
+  }, [])
+
+  // Init carte
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [30.0619, -1.9441],
+      zoom: 12,
+    })
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+  }, [showMap])
+
+  // Markers sur la carte
+  useEffect(() => {
+    if (!map.current) return
+    markers.current.forEach(m => m.remove())
+    markers.current = []
+
+    filtered.forEach(ad => {
+      const color = ad.category === 'immo-vente' ? '#1a7a4a' : ad.category === 'immo-location' ? '#f5a623' : '#6b7c6e'
+      const el = document.createElement('div')
+      el.style.cssText = `
+        background: ${color};
+        color: white;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        font-family: Syne, sans-serif;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        white-space: nowrap;
+        border: 2px solid white;
+      `
+      el.innerText = Number(ad.price).toLocaleString() + ' RWF'
+      el.addEventListener('click', () => setSelectedAd(ad))
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([ad.lng, ad.lat])
+        .addTo(map.current)
+      markers.current.push(marker)
+    })
+  }, [filtered, map.current])
+
+  // Filtres
+  useEffect(() => {
+    let result = [...ads]
+    if (search) result = result.filter(ad => ad.title?.toLowerCase().includes(search.toLowerCase()) || ad.description?.toLowerCase().includes(search.toLowerCase()))
+    if (filterCat) result = result.filter(ad => ad.category === filterCat)
+    if (filterQuartier !== 'Tous') result = result.filter(ad => ad.district?.toLowerCase().includes(filterQuartier.toLowerCase()) || ad.province?.toLowerCase().includes(filterQuartier.toLowerCase()))
+    if (filterPriceMin) result = result.filter(ad => ad.price >= parseInt(filterPriceMin))
+    if (filterPriceMax) result = result.filter(ad => ad.price <= parseInt(filterPriceMax))
+    if (sortBy === 'prix-asc') result.sort((a, b) => a.price - b.price)
+    else if (sortBy === 'prix-desc') result.sort((a, b) => b.price - a.price)
+    else result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    setFiltered(result)
+  }, [search, filterCat, filterQuartier, filterPriceMin, filterPriceMax, filterMeuble, sortBy, ads])
+
+  const catLabel: any = {
+    'immo-vente': 'Vente',
+    'immo-location': 'Location',
+    'immo-terrain': 'Terrain',
+  }
+
+  const catColor: any = {
+    'immo-vente': '#1a7a4a',
+    'immo-location': '#f5a623',
+    'immo-terrain': '#6b7c6e',
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f7f5', display: 'flex', flexDirection: 'column' }}>
+      <style>{`
+        .mapboxgl-map { border-radius: 0; }
+        .immo-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important; }
+        .immo-card { transition: transform 0.18s, box-shadow 0.18s; }
+        @media (max-width: 768px) {
+          .immo-layout { flex-direction: column !important; }
+          .immo-map { height: 300px !important; }
+        }
+      `}</style>
+
+      {/* HEADER */}
+      <header style={{ background: 'white', borderBottom: '1px solid #e8ede9', position: 'sticky', top: 0, zIndex: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5%', height: '58px', maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+              <div style={{ width: '32px', height: '32px', background: '#f5a623', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🦁</div>
+              <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', color: '#111a14' }}>Soko<span style={{ color: '#1a7a4a' }}>Deal</span></span>
+            </a>
+            <span style={{ color: '#e8ede9' }}>|</span>
+            <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.95rem', color: '#1a7a4a' }}>🏡 Immobilier</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setShowMap(!showMap)}
+              style={{ padding: '7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
+              {showMap ? '📋 Liste' : '🗺️ Carte'}
+            </button>
+            {user ? (
+              <button onClick={() => window.location.href = '/profil'} style={{ padding: '7px 14px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
+                Mon compte
+              </button>
+            ) : (
+              <button onClick={() => window.location.href = '/auth?mode=login'} style={{ padding: '7px 14px', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', background: 'white', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
+                Connexion
+              </button>
+            )}
+            <button onClick={() => window.location.href = '/publier'} style={{ padding: '7px 14px', background: '#f5a623', border: 'none', borderRadius: '8px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', color: '#111a14', cursor: 'pointer' }}>
+              + Deposer
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* HERO */}
+      <div style={{ background: 'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding: '32px 5%' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.8rem', color: 'white', marginBottom: '8px' }}>
+            Trouvez votre bien immobilier au Rwanda
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginBottom: '20px' }}>
+            {filtered.length} bien(s) disponible(s) — Vente, location et terrains
+          </p>
+
+          {/* BARRE RECHERCHE */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '200px', display: 'flex', background: 'white', borderRadius: '10px', overflow: 'hidden' }}>
+              <input
+                type="text"
+                placeholder="Rechercher un bien..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ flex: 1, padding: '12px 16px', border: 'none', outline: 'none', fontFamily: 'DM Sans,sans-serif', fontSize: '0.9rem', color: '#111a14' }}
+              />
+              <button style={{ background: '#f5a623', border: 'none', padding: '12px 18px', cursor: 'pointer', fontSize: '1rem' }}>🔍</button>
+            </div>
+
+            {CATEGORIES_IMMO.map(cat => (
+              <button key={cat.value} onClick={() => setFilterCat(cat.value)}
+                style={{ padding: '12px 18px', background: filterCat === cat.value ? 'white' : 'rgba(255,255,255,0.15)', color: filterCat === cat.value ? '#1a7a4a' : 'white', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* FILTRES AVANCES */}
+      <div style={{ background: 'white', borderBottom: '1px solid #e8ede9', padding: '12px 5%' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+
+          <select value={filterQuartier} onChange={e => setFilterQuartier(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', outline: 'none', background: 'white', cursor: 'pointer', color: '#111a14' }}>
+            {QUARTIERS.map(q => <option key={q} value={q}>{q === 'Tous' ? '📍 Quartier' : q}</option>)}
+          </select>
+
+          <input type="number" placeholder="Prix min (RWF)" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', outline: 'none', width: '150px', color: '#111a14' }} />
+
+          <input type="number" placeholder="Prix max (RWF)" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', outline: 'none', width: '150px', color: '#111a14' }} />
+
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', outline: 'none', background: 'white', cursor: 'pointer', color: '#111a14' }}>
+            <option value="recent">Plus recent</option>
+            <option value="prix-asc">Prix croissant</option>
+            <option value="prix-desc">Prix decroissant</option>
+          </select>
+
+          <span style={{ fontSize: '0.82rem', color: '#6b7c6e', marginLeft: 'auto' }}>{filtered.length} bien(s)</span>
+
+          {(filterCat || filterQuartier !== 'Tous' || filterPriceMin || filterPriceMax || search) && (
+            <button onClick={() => { setFilterCat(''); setFilterQuartier('Tous'); setFilterPriceMin(''); setFilterPriceMax(''); setSearch('') }}
+              style={{ padding: '8px 12px', background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer' }}>
+              Effacer filtres
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* LAYOUT PRINCIPAL */}
+      <div className="immo-layout" style={{ display: 'flex', flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%', padding: '16px 5%', gap: '16px' }}>
+
+        {/* LISTE */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: '#6b7c6e' }}>Chargement...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ background: 'white', borderRadius: '14px', padding: '48px', textAlign: 'center', border: '1px solid #e8ede9' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🏡</div>
+              <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, marginBottom: '8px', color: '#111a14' }}>Aucun bien trouve</h3>
+              <p style={{ color: '#6b7c6e', fontSize: '0.88rem' }}>Modifiez vos filtres ou publiez une annonce</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {filtered.map((ad: any) => (
+                <div key={ad.id} className="immo-card"
+                  onClick={() => { setSelectedAd(ad); if (map.current) map.current.flyTo({ center: [ad.lng, ad.lat], zoom: 15 }) }}
+                  style={{ background: 'white', borderRadius: '14px', overflow: 'hidden', cursor: 'pointer', border: selectedAd?.id === ad.id ? '2px solid #1a7a4a' : '1px solid #e8ede9', display: 'flex', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+
+                  {/* IMAGE */}
+                  <div style={{ width: '200px', minHeight: '140px', background: '#f5f7f5', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', overflow: 'hidden', position: 'relative' }}>
+                    {ad.images && ad.images.length > 0 ? (
+                      <img src={ad.images[0]} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ opacity: 0.4 }}>🏡</span>
+                    )}
+                    <div style={{ position: 'absolute', top: '8px', left: '8px', background: catColor[ad.category] || '#6b7c6e', color: 'white', padding: '3px 8px', borderRadius: '5px', fontSize: '0.65rem', fontWeight: 700 }}>
+                      {catLabel[ad.category] || ad.category}
+                    </div>
+                  </div>
+
+                  {/* INFOS */}
+                  <div style={{ flex: 1, padding: '16px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.95rem', color: '#111a14', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                        {ad.title}
+                      </h3>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#0f5233', flexShrink: 0 }}>
+                        {Number(ad.price).toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e' }}>RWF</span>
+                        {ad.category === 'immo-location' && <span style={{ fontSize: '0.65rem', color: '#6b7c6e' }}>/mois</span>}
+                      </div>
+                    </div>
+
+                    {ad.province && (
+                      <div style={{ fontSize: '0.78rem', color: '#6b7c6e', marginBottom: '8px' }}>
+                        📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
+                      </div>
+                    )}
+
+                    {ad.description && (
+                      <p style={{ fontSize: '0.78rem', color: '#6b7c6e', margin: '0 0 10px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        {ad.description}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + ad.id }}
+                        style={{ padding: '6px 14px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+                        Voir le bien
+                      </button>
+                      <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>
+                        {new Date(ad.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* CARTE */}
+        {showMap && (
+          <div style={{ width: '480px', flexShrink: 0, position: 'sticky', top: '74px', height: 'calc(100vh - 90px)' }}>
+            <div ref={mapContainer} className="immo-map" style={{ width: '100%', height: '100%', borderRadius: '14px', overflow: 'hidden', border: '1px solid #e8ede9' }} />
+
+            {/* POPUP ANNONCE SELECTIONNEE */}
+            {selectedAd && (
+              <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', background: 'white', borderRadius: '12px', padding: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e8ede9' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                    {selectedAd.images?.[0] ? <img src={selectedAd.images[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏡'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#111a14', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedAd.title}</div>
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, color: '#0f5233', fontSize: '0.9rem' }}>{Number(selectedAd.price).toLocaleString()} RWF</div>
+                    {selectedAd.province && <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>📍 {selectedAd.province}</div>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+                    <button onClick={() => window.location.href = '/annonce/' + selectedAd.id}
+                      style={{ padding: '6px 12px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
+                      Voir
+                    </button>
+                    <button onClick={() => setSelectedAd(null)}
+                      style={{ padding: '6px 12px', background: '#f5f7f5', color: '#6b7c6e', border: '1px solid #e8ede9', borderRadius: '7px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer' }}>
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
