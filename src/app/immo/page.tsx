@@ -146,36 +146,36 @@ export default function ImmoPage() {
 
       {/* HEADER */}
       <header style={{ background: 'white', borderBottom: '1px solid #e8ede9', position: 'sticky', top: 0, zIndex: 200 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5%', height: '58px', maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-              <div style={{ width: '32px', height: '32px', background: '#f5a623', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🦁</div>
-              <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', color: '#111a14' }}>Soko<span style={{ color: '#1a7a4a' }}>Deal</span></span>
-            </a>
-            <span style={{ color: '#e8ede9' }}>|</span>
-            <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.95rem', color: '#1a7a4a' }}>🏡 Immobilier</span>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setShowMap(!showMap)}
-              style={{ padding: '7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {showMap ? '📋 Masquer la carte' : '🗺️ Afficher la carte'}
-            </button>
-            {user ? (
-              <button onClick={() => window.location.href = '/profil'} style={{ padding: '7px 14px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
-                Mon compte
-              </button>
-            ) : (
-              <button onClick={() => window.location.href = '/auth?mode=login'} style={{ padding: '7px 14px', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', background: 'white', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
-                Connexion
-              </button>
-            )}
-            <button onClick={() => window.location.href = '/publier'} style={{ padding: '7px 14px', background: '#f5a623', border: 'none', borderRadius: '8px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', color: '#111a14', cursor: 'pointer' }}>
-              + Deposer
-            </button>
-          </div>
-        </div>
-      </header>
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4%', height: '58px', maxWidth: '1400px', margin: '0 auto', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+      <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+        <div style={{ width: '32px', height: '32px', background: '#f5a623', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🦁</div>
+        <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.1rem', color: '#111a14' }}>Soko<span style={{ color: '#1a7a4a' }}>Deal</span></span>
+      </a>
+      <span style={{ color: '#e8ede9', fontSize: '0.8rem' }}>|</span>
+      <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#1a7a4a', whiteSpace: 'nowrap' }}>🏡 Immo</span>
+    </div>
+    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+      <button
+        onClick={() => setShowMap(!showMap)}
+        style={{ padding: '6px 10px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border: '1px solid #e8ede9', borderRadius: '8px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {showMap ? '🗺️ Masquer' : '🗺️ Carte'}
+      </button>
+      {user ? (
+        <button onClick={() => window.location.href = '/profil'} style={{ padding: '6px 10px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', fontFamily: 'DM Sans,sans-serif', fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          Mon compte
+        </button>
+      ) : (
+        <button onClick={() => window.location.href = '/auth?mode=login'} style={{ padding: '6px 10px', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', background: 'white', fontFamily: 'DM Sans,sans-serif', fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          Connexion
+        </button>
+      )}
+      <button onClick={() => window.location.href = '/publier'} style={{ padding: '6px 10px', background: '#f5a623', border: 'none', borderRadius: '8px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', color: '#111a14', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        + Déposer
+      </button>
+    </div>
+  </div>
+</header>
 
       {/* HERO */}
       <div style={{ background: 'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding: '32px 5%' }}>
