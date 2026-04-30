@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
         `}}/>
       </head>
-      <body style={{margin:0, padding:0, background:'#f5f7f5'}}>{children}</body>
+      <body style={{margin:0, padding:0, background:'#f5f7f5', overflowX:'hidden', maxWidth:'100vw'}}>{children}</body>
     </html>
   )
 }

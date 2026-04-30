@@ -185,7 +185,8 @@ export default function Home() {
   return (
     <>
       <style>{`
-        * { box-sizing: border-box; }
+  * { box-sizing: border-box; }
+  html, body { overflow-x: hidden; max-width: 100vw; }
         @media (max-width: 768px) {
           .hero-title { font-size: 1.7rem !important; }
           .ads-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
