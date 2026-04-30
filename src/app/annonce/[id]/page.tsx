@@ -247,13 +247,21 @@ export default function AnnonceDetail() {
             <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14', textTransform:'uppercase', letterSpacing:'0.04em'}}>Details</h2>
             <div className="detail-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
               {[
-                { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
-                { label:'Prix', value: Number(ad.price).toLocaleString() + ' RWF', icon:'💰' },
-                { label:'Ville', value: ad.province || '-', icon:'🗺️' },
-                { label:'District', value: ad.district || '-', icon:'📍' },
-                { label:'Publie le', value: new Date(ad.created_at).toLocaleDateString('fr-FR'), icon:'📅' },
-                { label:'Statut', value: ad.is_active ? 'Active' : 'Inactive', icon:'🔘' },
-              ].map((item, i) => (
+    { label:'Categorie', value: catLabel[ad.category] || ad.category, icon:'🏷️' },
+    { label:'Prix', value: Number(ad.price).toLocaleString() + ' RWF', icon:'💰' },
+    { label:'Ville', value: ad.province || '-', icon:'🗺️' },
+    { label:'District', value: ad.district || '-', icon:'📍' },
+    { label:'Publie le', value: new Date(ad.created_at).toLocaleDateString('fr-FR'), icon:'📅' },
+    { label:'Statut', value: ad.is_active ? 'Active' : 'Inactive', icon:'🔘' },
+    ...(ad.immo_type ? [{ label:'Type', value: ad.immo_type, icon:'🏡' }] : []),
+    ...(ad.surface ? [{ label:'Surface', value: ad.surface + ' m²', icon:'📐' }] : []),
+    ...(ad.chambres ? [{ label:'Chambres', value: ad.chambres, icon:'🛏️' }] : []),
+    ...(ad.salles_de_bain ? [{ label:'Salles de bain', value: ad.salles_de_bain, icon:'🚿' }] : []),
+    ...(ad.etage ? [{ label:'Etage', value: ad.etage, icon:'🏢' }] : []),
+    ...(ad.etat ? [{ label:'Etat', value: ad.etat === 'neuf' ? 'Neuf' : ad.etat === 'bon-etat' ? 'Bon etat' : 'A renover', icon:'✨' }] : []),
+    ...(ad.meuble ? [{ label:'Meuble', value: 'Oui', icon:'🛋️' }] : []),
+    ...(ad.charges_incluses ? [{ label:'Charges', value: 'Incluses', icon:'💡' }] : []),
+  ].map((item, i) => (
                 <div key={i} style={{background:'#f5f7f5', borderRadius:'9px', padding:'11px 13px', border:'1px solid #e8ede9'}}>
                   <div style={{fontSize:'0.7rem', color:'#6b7c6e', fontWeight:600, marginBottom:'3px', textTransform:'uppercase'}}>{item.icon} {item.label}</div>
                   <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14'}}>{item.value}</div>

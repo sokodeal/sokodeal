@@ -293,7 +293,7 @@ export default function Home() {
         <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto'}}>
           {[
             {cat:'', label:'Tout'},
-            {cat:'immo-vente', label:'🏡 Immo'},
+            {cat:'immo-vente', label:'🏡 Immo', href:'/immo'},
             {cat:'voiture', label:'🚗 Autos'},
             {cat:'moto', label:'🛵 Motos'},
             {cat:'electronique', label:'📱 Tech'},
@@ -306,7 +306,7 @@ export default function Home() {
             {cat:'animaux', label:'🐄 Animaux'},
             {cat:'services', label:'🏗️ Services'},
           ].map((item, i) => (
-            <a key={i} href="#" onClick={e => { e.preventDefault(); setActiveSection('main'); setFilterCat(item.cat) }} style={{
+            <a key={i} href={item.href || '#'} onClick={e => { if (!item.href) { e.preventDefault(); setActiveSection('main'); setFilterCat(item.cat) } }} style={{
               display:'flex', alignItems:'center', padding:'9px 14px',
               color: filterCat === item.cat ? '#1a7a4a' : '#6b7c6e',
               textDecoration:'none', fontSize:'0.82rem',
