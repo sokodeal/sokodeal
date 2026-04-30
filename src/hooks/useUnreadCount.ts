@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase'
 
 export function useUnreadCount() {
   const [unreadCount, setUnreadCount] = useState(0)
-  const [userId, setUserId] = useState<string | null>(null)
 
   const loadCount = useCallback(async (uid: string) => {
     const { count } = await supabase
@@ -15,14 +14,17 @@ export function useUnreadCount() {
   }, [])
 
   useEffect(() => {
+    let userId: string | null = null
+
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      setUserId(user.id)
+      userId = user.id
       await loadCount(user.id)
 
-      // Nouveau message recu
-      const ch = supabase.channel('unread-badge-' + user.id.slice(0, 8))
+      const ch = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
+
+      // Nouveau message recu → +1
       ch.on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -30,16 +32,26 @@ export function useUnreadCount() {
         filter: 'receiver_id=eq.' + user.id,
       }, () => {
         setUnreadCount(c => c + 1)
-      }).on('postgres_changes', {
+      })
+
+      // Message lu → recharger le vrai count
+      ch.on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'messages',
+        filter: 'receiver_id=eq.' + user.id,
       }, () => {
-        // Recharger le count a chaque UPDATE
         loadCount(user.id)
-      }).subscribe()
+      })
 
-      // Recharger quand on revient sur la page
+      // Broadcast depuis la page messages quand on lit
+      ch.on('broadcast', { event: 'messages_read' }, () => {
+        loadCount(user.id)
+      })
+
+      ch.subscribe()
+
+      // Recharger au focus de la page
       const handleFocus = () => loadCount(user.id)
       window.addEventListener('focus', handleFocus)
 
@@ -48,6 +60,7 @@ export function useUnreadCount() {
         window.removeEventListener('focus', handleFocus)
       }
     }
+
     init()
   }, [loadCount])
 

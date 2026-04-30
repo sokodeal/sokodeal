@@ -141,6 +141,12 @@ export default function MessagesPage() {
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
     ))
+    const broadcastCh = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
+broadcastCh.send({
+  type: 'broadcast',
+  event: 'messages_read',
+  payload: {},
+})
   }
 
   const markAsRead = async (userId: string) => {
