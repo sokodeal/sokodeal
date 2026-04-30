@@ -15,6 +15,7 @@ export function useUnreadCount() {
 
   useEffect(() => {
     let userId: string | null = null
+    let channel: any = null
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -22,41 +23,32 @@ export function useUnreadCount() {
       userId = user.id
       await loadCount(user.id)
 
-      const ch = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
+      channel = supabase.channel('unread-' + user.id.slice(0, 8))
 
-      // Nouveau message recu → +1
-      ch.on('postgres_changes', {
+      channel.on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
         filter: 'receiver_id=eq.' + user.id,
       }, () => {
         setUnreadCount(c => c + 1)
-      })
+      }).subscribe()
 
-      // Message lu → recharger le vrai count
-      ch.on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages',
-        filter: 'receiver_id=eq.' + user.id,
-      }, () => {
-        loadCount(user.id)
-      })
+      // Recharger quand la page redevient visible
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible' && userId) {
+          loadCount(userId)
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibility)
 
-      // Broadcast depuis la page messages quand on lit
-      ch.on('broadcast', { event: 'messages_read' }, () => {
-        loadCount(user.id)
-      })
-
-      ch.subscribe()
-
-      // Recharger au focus de la page
-      const handleFocus = () => loadCount(user.id)
+      // Recharger au focus
+      const handleFocus = () => { if (userId) loadCount(userId) }
       window.addEventListener('focus', handleFocus)
 
       return () => {
-        supabase.removeChannel(ch)
+        if (channel) supabase.removeChannel(channel)
+        document.removeEventListener('visibilitychange', handleVisibility)
         window.removeEventListener('focus', handleFocus)
       }
     }
