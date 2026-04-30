@@ -193,7 +193,8 @@ export default function Home() {
           .filters-grid { grid-template-columns: 1fr 1fr !important; }
           .btn-signup { display: none !important; }
           .header-inner { padding: 0 4% !important; height: 56px !important; }
-          .deposer-btn { padding: 7px 12px !important; font-size: 0.8rem !important; }
+          .deposer-btn { padding: 6px 8px !important; font-size: 0.75rem !important; }
+.deposer-text { display: none !important; }
           .hero-section { padding: 36px 4% 32px !important; }
           .mon-compte-label { display: none !important; }
           .search-bar { display: none !important; }
@@ -270,7 +271,7 @@ export default function Home() {
               </>
             )}
             <button className="deposer-btn" onClick={() => window.location.href='/publier'} style={{padding:'8px 18px', background:'#f5a623', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14', cursor:'pointer', whiteSpace:'nowrap'}}>
-              + Deposer
+              +<span className="deposer-text"> Deposer</span>
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Header from '@/components/Header'
 
 export default function VerificationPage() {
   const [user, setUser] = useState<any>(null)
@@ -128,17 +129,7 @@ export default function VerificationPage() {
   return (
     <div style={{minHeight:'100vh', background:'#f5f7f5'}}>
 
-      <header style={{background:'white', borderBottom:'1px solid #e8ede9', position:'sticky', top:0, zIndex:100}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'58px', maxWidth:'800px', margin:'0 auto'}}>
-          <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
-            <div style={{width:'32px', height:'32px', background:'#f5a623', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px'}}>🦁</div>
-            <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
-          </a>
-          <a href="/profil" style={{padding:'7px 14px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'8px', color:'#111a14', fontFamily:'DM Sans,sans-serif', fontSize:'0.85rem', textDecoration:'none'}}>
-            Mon compte
-          </a>
-        </div>
-      </header>
+      <Header />
 
       <div style={{maxWidth:'560px', margin:'32px auto', padding:'0 5% 60px'}}>
 

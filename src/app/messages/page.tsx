@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import Header from '@/components/Header'
 
 export default function MessagesPage() {
   const [user, setUser] = useState<any>(null)
@@ -217,22 +218,7 @@ export default function MessagesPage() {
       `}</style>
 
       {/* HEADER */}
-      <header style={{ background: 'white', borderBottom: '1px solid #e8ede9', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5%', height: '58px', maxWidth: '1100px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {activeConv && (
-              <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }}>←</button>
-            )}
-            <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-              <div style={{ width: '32px', height: '32px', background: '#f5a623', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🦁</div>
-              <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', color: '#111a14' }}>Soko<span style={{ color: '#1a7a4a' }}>Deal</span></span>
-            </a>
-          </div>
-          <button onClick={() => window.location.href = '/profil'} style={{ padding: '7px 14px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '8px', color: '#111a14', fontFamily: 'DM Sans,sans-serif', fontSize: '0.85rem', cursor: 'pointer' }}>
-            Mon compte
-          </button>
-        </div>
-      </header>
+     <Header />
 
       <div style={{ maxWidth: '1100px', width: '100%', margin: '20px auto', padding: '0 5%', flex: 1, display: 'flex', flexDirection: 'column' }}>
         <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '16px', color: '#111a14' }}>

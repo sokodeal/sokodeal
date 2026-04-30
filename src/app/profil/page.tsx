@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import FavoriteButton from '@/components/FavoriteButton'
+import Header from '@/components/Header'
 
 function AlertesTab({ userId }: { userId: string }) {
   const [searches, setSearches] = useState<any[]>([])
@@ -522,22 +523,7 @@ export default function ProfilPage() {
         </div>
       )}
 
-      <header style={{background:'white', borderBottom:'1px solid #e8ede9', position:'sticky', top:0, zIndex:100}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'58px', maxWidth:'1100px', margin:'0 auto'}}>
-          <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none'}}>
-            <div style={{width:'32px', height:'32px', background:'#f5a623', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px'}}>🦁</div>
-            <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
-          </a>
-          <div style={{display:'flex', gap:'8px'}}>
-            <button onClick={() => window.location.href='/publier'} style={{padding:'7px 16px', background:'#f5a623', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'#111a14', cursor:'pointer'}}>
-              + Publier
-            </button>
-            <button onClick={handleLogout} style={{padding:'7px 16px', background:'transparent', border:'1px solid #e8ede9', borderRadius:'8px', color:'#6b7c6e', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', cursor:'pointer'}}>
-              Deconnexion
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <div style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'28px 5% 50px'}}>
         <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', alignItems:'center', gap:'16px'}}>
