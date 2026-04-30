@@ -1,38 +1,109 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import Header from '@/components/Header'
 
 export default function VerificationPage() {
   const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [step, setStep] = useState<'account' | 'identity' | 'cgu' | 'uploading' | 'success'>('account')
+  const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Étape 1 — Compte
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [checkingUsername, setCheckingUsername] = useState(false)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+
+  // Étape 2 — Identité
+  const [nationalId, setNationalId] = useState('')
   const [docFile, setDocFile] = useState<File | null>(null)
   const [docPreview, setDocPreview] = useState<string | null>(null)
-  const [nationalId, setNationalId] = useState('')
-  const [step, setStep] = useState<'upload' | 'uploading' | 'success'>('upload')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Étape 3 — CGU
+  const [acceptCGU, setAcceptCGU] = useState(false)
+  const [acceptArnaque, setAcceptArnaque] = useState(false)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth?mode=login'; return }
-      setUser(user)
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      setProfile(userData)
-      if (userData?.is_verified) setStep('success')
+      if (user) {
+        // Déjà connecté — vérifier si déjà vérifié
+        const { data: userData } = await supabase
+          .from('users')
+          .select('is_verified')
+          .eq('id', user.id)
+          .single()
+        if (userData?.is_verified) {
+          setStep('success')
+        } else {
+          // Connecté mais pas vérifié → aller à l'identité
+          setUser(user)
+          setStep('identity')
+        }
+      }
       setLoading(false)
     }
     init()
   }, [])
 
+  // ── Vérifier disponibilité username en temps réel ──
+  useEffect(() => {
+    if (!username || username.length < 3) { setUsernameAvailable(null); return }
+    const timer = setTimeout(async () => {
+      setCheckingUsername(true)
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username.toLowerCase())
+        .maybeSingle()
+      setUsernameAvailable(!data)
+      setCheckingUsername(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [username])
+
+  // ── Étape 1 : créer le compte ──
+  const handleAccount = async () => {
+    setError('')
+    if (!fullName.trim()) return setError('Le nom complet est requis.')
+    if (!email.includes('@')) return setError('Email invalide.')
+    if (!username || username.length < 3) return setError('Username : 3 caractères minimum.')
+    if (!/^[a-z0-9_]+$/.test(username)) return setError('Username : lettres, chiffres et _ uniquement.')
+    if (usernameAvailable === false) return setError('Ce username est déjà pris.')
+    if (password.length < 8) return setError('Mot de passe : 8 caractères minimum.')
+
+    setUploading(true)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } }
+    })
+    if (authError) { setError(authError.message); setUploading(false); return }
+
+    const userId = authData.user?.id
+    if (!userId) { setError('Erreur création compte.'); setUploading(false); return }
+
+    // Créer le profil avec username
+    const { error: profileError } = await supabase.from('users').upsert({
+      id: userId,
+      email,
+      full_name: fullName,
+      username: username.toLowerCase(),
+      is_verified: false,
+    })
+    if (profileError) { setError(profileError.message); setUploading(false); return }
+
+    setUser(authData.user)
+    setUploading(false)
+    setStep('identity')
+  }
+
+  // ── Sélection photo ──
   const handleFileChange = (e: any) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -42,21 +113,34 @@ export default function VerificationPage() {
     reader.readAsDataURL(file)
   }
 
-  const handleVerify = async () => {
-    if (!docFile || !user || !nationalId.trim()) return
-    setUploading(true)
-    setStep('uploading')
+  // ── Étape 2 : valider identité ──
+  const handleIdentity = () => {
+    setError('')
+    if (!nationalId.trim()) return setError('Le numéro de carte est requis.')
+    if (!docFile) return setError('Veuillez uploader une photo de votre carte.')
+    setStep('cgu')
+  }
 
+  // ── Étape 3 : CGU + upload final ──
+  const handleFinal = async () => {
+    setError('')
+    if (!acceptCGU) return setError('Vous devez accepter les CGU.')
+    if (!acceptArnaque) return setError('Vous devez accepter la politique anti-arnaque.')
+
+    setStep('uploading')
     try {
-      // 1. Upload la photo dans Storage
-      const ext = docFile.name.split('.').pop()
-      const filePath = `${user.id}/id-card.${ext}`
+      const currentUser = user || (await supabase.auth.getUser()).data.user
+      if (!currentUser) throw new Error('Non connecté.')
+
+      // Upload photo CNI
+      const ext = docFile!.name.split('.').pop()
+      const filePath = `${currentUser.id}/id-card.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('id-documents')
-        .upload(filePath, docFile, { upsert: true })
+        .upload(filePath, docFile!, { upsert: true })
       if (uploadError) throw uploadError
 
-      // 2. Mettre à jour le profil : vérifié immédiatement
+      // Mettre à jour le profil
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -65,17 +149,23 @@ export default function VerificationPage() {
           id_verification_status: 'verified',
           is_verified: true,
         })
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
       if (updateError) throw updateError
 
       setStep('success')
     } catch (err: any) {
-      console.error(err)
-      alert('Erreur lors de l\'upload. Réessayez.')
-      setStep('upload')
-    } finally {
-      setUploading(false)
+      setError(err.message || 'Erreur. Réessayez.')
+      setStep('cgu')
     }
+  }
+
+  const stepIndex = { account: 0, identity: 1, cgu: 2, uploading: 2, success: 3 }[step]
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '11px 14px', border: '1.5px solid #e0e0e0',
+    borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.9rem',
+    outline: 'none', background: '#fafafa', color: '#222', boxSizing: 'border-box',
+    marginBottom: '14px', display: 'block'
   }
 
   if (loading) return (
@@ -85,185 +175,231 @@ export default function VerificationPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f7f5' }}>
-      <Header />
+    <div style={{ minHeight: '100vh', background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ width: '100%', maxWidth: '480px' }}>
 
-      <div style={{ maxWidth: '520px', margin: '32px auto', padding: '0 5% 60px' }}>
-
-        {/* Progress steps */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
-          {['Document', 'Upload', 'Confirmé'].map((label, i) => {
-            const stepIndex = step === 'upload' ? 0 : step === 'uploading' ? 1 : 2
-            const done = i < stepIndex
-            const active = i === stepIndex
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < 2 ? 1 : 'none' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <div style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
-                    background: done ? '#1a7a4a' : active ? '#f5a623' : '#e8ede9',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.8rem', fontWeight: 800,
-                    color: done || active ? 'white' : '#6b7c6e'
-                  }}>
-                    {done ? '✓' : i + 1}
-                  </div>
-                  <span style={{ fontSize: '0.68rem', color: active ? '#111a14' : '#6b7c6e', fontWeight: active ? 700 : 400, whiteSpace: 'nowrap' }}>
-                    {label}
-                  </span>
-                </div>
-                {i < 2 && <div style={{ flex: 1, height: '2px', background: done ? '#1a7a4a' : '#e8ede9', margin: '0 8px', marginBottom: '18px' }} />}
-              </div>
-            )
-          })}
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <div style={{ width: '36px', height: '36px', background: '#f5a623', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🦁</div>
+            <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', color: '#111a14' }}>Soko<span style={{ color: '#1a7a4a' }}>Deal</span></span>
+          </a>
         </div>
 
-        {/* ── SUCCESS ── */}
-        {step === 'success' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '40px', border: '1px solid #e8ede9', textAlign: 'center' }}>
-            <div style={{ width: '72px', height: '72px', background: '#e8f5ee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px' }}>✅</div>
-            <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '8px', color: '#111a14' }}>
-              Identité vérifiée !
-            </h2>
-            <p style={{ color: '#6b7c6e', marginBottom: '24px', fontSize: '0.88rem', lineHeight: 1.6 }}>
-              Votre compte est maintenant vérifié. Le badge ✅ apparaît sur votre profil et vous pouvez publier des annonces.
-            </p>
-            <button onClick={() => window.location.href = '/publier'}
-              style={{ width: '100%', padding: '13px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer', marginBottom: '10px' }}>
-              Publier une annonce
-            </button>
-            <button onClick={() => window.location.href = '/profil'}
-              style={{ width: '100%', padding: '13px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.88rem', color: '#6b7c6e', cursor: 'pointer' }}>
-              Mon profil
-            </button>
+        {/* Progress */}
+        {step !== 'success' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
+            {['Compte', 'Identité', 'CGU'].map((label, i) => {
+              const done = i < stepIndex
+              const active = i === stepIndex
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <div style={{
+                      width: '30px', height: '30px', borderRadius: '50%',
+                      background: done ? '#1a7a4a' : active ? '#f5a623' : '#e8ede9',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.78rem', fontWeight: 800,
+                      color: done || active ? 'white' : '#6b7c6e'
+                    }}>
+                      {done ? '✓' : i + 1}
+                    </div>
+                    <span style={{ fontSize: '0.65rem', color: active ? '#111a14' : '#6b7c6e', fontWeight: active ? 700 : 400 }}>{label}</span>
+                  </div>
+                  {i < 2 && <div style={{ width: '40px', height: '2px', background: done ? '#1a7a4a' : '#e8ede9', marginBottom: '14px' }} />}
+                </div>
+              )
+            })}
           </div>
         )}
 
-        {/* ── UPLOADING ── */}
-        {step === 'uploading' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '48px', border: '1px solid #e8ede9', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>📤</div>
-            <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '8px', color: '#111a14' }}>
-              Upload en cours...
-            </h2>
-            <p style={{ color: '#6b7c6e', fontSize: '0.88rem' }}>Quelques secondes...</p>
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} style={{ width: '10px', height: '10px', background: '#1a7a4a', borderRadius: '50%', animation: `bounce 1s ease-in-out ${i * 0.2}s infinite` }} />
-              ))}
-            </div>
-            <style>{`@keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-8px);opacity:1} }`}</style>
-          </div>
-        )}
+        <div style={{ background: 'white', borderRadius: '16px', padding: '28px', border: '1px solid #e8ede9', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
 
-        {/* ── UPLOAD FORM ── */}
-        {step === 'upload' && (
-          <div>
-            <div style={{ background: 'white', borderRadius: '16px', padding: '28px', border: '1px solid #e8ede9', marginBottom: '14px' }}>
-              <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '6px', color: '#111a14' }}>
-                Vérification d'identité
-              </h1>
-              <p style={{ color: '#6b7c6e', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '20px' }}>
-                Uploadez votre carte nationale d'identité pour activer votre compte instantanément.
-              </p>
+          {/* ── ÉTAPE 1 : COMPTE ── */}
+          {step === 'account' && (
+            <>
+              <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '4px', color: '#111a14' }}>Créer un compte</h1>
+              <p style={{ color: '#6b7c6e', fontSize: '0.82rem', marginBottom: '20px' }}>Rejoignez la marketplace du Rwanda</p>
 
-              {/* Champ numéro CNI */}
-              <div style={{ marginBottom: '18px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
-                  Numéro de carte nationale
-                </label>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '5px', textTransform: 'uppercase' }}>Nom complet</label>
+              <input type="text" placeholder="Jean Mutabazi" value={fullName} onChange={e => setFullName(e.target.value)} style={inp} />
+
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '5px', textTransform: 'uppercase' }}>Email</label>
+              <input type="email" placeholder="jean@email.com" value={email} onChange={e => setEmail(e.target.value)} style={inp} />
+
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '5px', textTransform: 'uppercase' }}>Username</label>
+              <div style={{ position: 'relative', marginBottom: '14px' }}>
                 <input
                   type="text"
-                  placeholder="1 1990 7 0000000 1 00"
-                  value={nationalId}
-                  onChange={e => setNationalId(e.target.value)}
-                  style={{
-                    width: '100%', padding: '11px 14px',
-                    border: '1.5px solid #e0e0e0', borderRadius: '10px',
-                    fontFamily: 'DM Sans,sans-serif', fontSize: '0.9rem',
-                    outline: 'none', background: '#fafafa', color: '#222',
-                    boxSizing: 'border-box'
-                  }}
+                  placeholder="jean123"
+                  value={username}
+                  onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  style={{ ...inp, marginBottom: 0, paddingRight: '40px', borderColor: usernameAvailable === false ? '#e63946' : usernameAvailable === true ? '#1a7a4a' : '#e0e0e0' }}
                 />
+                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.9rem' }}>
+                  {checkingUsername ? '⏳' : usernameAvailable === true ? '✅' : usernameAvailable === false ? '❌' : ''}
+                </span>
+              </div>
+              {usernameAvailable === false && <p style={{ fontSize: '0.75rem', color: '#e63946', marginTop: '-10px', marginBottom: '10px' }}>Ce username est déjà pris</p>}
+              {usernameAvailable === true && <p style={{ fontSize: '0.75rem', color: '#1a7a4a', marginTop: '-10px', marginBottom: '10px' }}>Username disponible ✓</p>}
+
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '5px', textTransform: 'uppercase' }}>Mot de passe</label>
+              <div style={{ position: 'relative', marginBottom: '14px' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="8 caractères minimum"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  style={{ ...inp, marginBottom: 0, paddingRight: '40px' }}
+                />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
               </div>
 
-              {/* Upload zone */}
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
-                Photo de votre carte d'identité
-              </label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  border: `2px dashed ${docPreview ? '#1a7a4a' : '#e8ede9'}`,
-                  borderRadius: '12px', padding: docPreview ? '8px' : '32px',
-                  textAlign: 'center', background: '#fafaf9', cursor: 'pointer',
-                  transition: 'border-color 0.2s', marginBottom: '10px'
-                }}
-              >
+              {error && <div style={{ background: '#fff1f0', border: '1px solid #ffd6d6', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>⚠️ {error}</div>}
+
+              <button onClick={handleAccount} disabled={uploading} style={{ width: '100%', padding: '13px', background: uploading ? '#ccc' : '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: uploading ? 'not-allowed' : 'pointer', marginBottom: '14px' }}>
+                {uploading ? '⏳ Création...' : 'Continuer →'}
+              </button>
+
+              <p style={{ textAlign: 'center', fontSize: '0.82rem', color: '#6b7c6e' }}>
+                Déjà un compte ?{' '}
+                <a href="/auth?mode=login" style={{ color: '#1a7a4a', fontWeight: 700, textDecoration: 'none' }}>Se connecter</a>
+              </p>
+            </>
+          )}
+
+          {/* ── ÉTAPE 2 : IDENTITÉ ── */}
+          {step === 'identity' && (
+            <>
+              <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '4px', color: '#111a14' }}>Vérification d'identité</h1>
+              <p style={{ color: '#6b7c6e', fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '20px' }}>
+                Uploadez votre carte nationale pour activer votre compte instantanément.
+              </p>
+
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '5px', textTransform: 'uppercase' }}>Numéro de carte nationale</label>
+              <input type="text" placeholder="1 1990 7 0000000 1 00" value={nationalId} onChange={e => setNationalId(e.target.value)} style={inp} />
+
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#6b7c6e', marginBottom: '8px', textTransform: 'uppercase' }}>Photo de votre carte</label>
+              <div onClick={() => fileInputRef.current?.click()}
+                style={{ border: `2px dashed ${docPreview ? '#1a7a4a' : '#e8ede9'}`, borderRadius: '12px', padding: docPreview ? '8px' : '28px', textAlign: 'center', background: '#fafaf9', cursor: 'pointer', marginBottom: '14px' }}>
                 {docPreview ? (
                   <div>
-                    <img src={docPreview} alt="Document" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px', marginBottom: '8px' }} />
-                    <p style={{ fontSize: '0.78rem', color: '#1a7a4a', fontWeight: 600 }}>Appuyez pour changer</p>
+                    <img src={docPreview} alt="CNI" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'contain', borderRadius: '8px', marginBottom: '6px' }} />
+                    <p style={{ fontSize: '0.75rem', color: '#1a7a4a', fontWeight: 600 }}>Appuyer pour changer</p>
                   </div>
                 ) : (
-                  <div>
-                    <div style={{ fontSize: '2.2rem', marginBottom: '10px' }}>📷</div>
-                    <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.88rem', color: '#111a14', marginBottom: '4px' }}>
-                      Prendre une photo
-                    </p>
-                    <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>JPG, PNG — Max 5MB</p>
-                  </div>
+                  <>
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📷</div>
+                    <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#111a14', marginBottom: '4px' }}>Prendre une photo</p>
+                    <p style={{ fontSize: '0.72rem', color: '#9ca3af' }}>JPG, PNG — Max 5MB</p>
+                  </>
                 )}
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} style={{ display: 'none' }} />
 
-              {/* Note sécurité */}
-              <div style={{ background: '#f0f8f4', borderRadius: '10px', padding: '11px 14px', marginTop: '16px', marginBottom: '20px' }}>
-                <p style={{ fontSize: '0.78rem', color: '#4a6b57' }}>
-                  🔒 Vos données sont stockées de manière sécurisée et ne sont jamais partagées.
-                </p>
+              <div style={{ background: '#f0f8f4', borderRadius: '10px', padding: '11px 14px', marginBottom: '20px' }}>
+                <p style={{ fontSize: '0.75rem', color: '#4a6b57' }}>🔒 Vos données sont stockées de manière sécurisée et ne sont jamais partagées.</p>
               </div>
 
-              <button
-                onClick={handleVerify}
-                disabled={!docFile || !nationalId.trim() || uploading}
-                style={{
-                  width: '100%', padding: '14px',
-                  background: !docFile || !nationalId.trim() ? '#e8ede9' : '#1a7a4a',
-                  border: 'none', borderRadius: '12px',
-                  fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem',
-                  color: !docFile || !nationalId.trim() ? '#6b7c6e' : 'white',
-                  cursor: !docFile || !nationalId.trim() ? 'not-allowed' : 'pointer'
-                }}>
-                ✅ Vérifier mon identité
+              {error && <div style={{ background: '#fff1f0', border: '1px solid #ffd6d6', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>⚠️ {error}</div>}
+
+              <button onClick={handleIdentity} disabled={!docFile || !nationalId.trim()}
+                style={{ width: '100%', padding: '13px', background: !docFile || !nationalId.trim() ? '#e8ede9' : '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: !docFile || !nationalId.trim() ? '#6b7c6e' : 'white', cursor: !docFile || !nationalId.trim() ? 'not-allowed' : 'pointer' }}>
+                Continuer →
+              </button>
+            </>
+          )}
+
+          {/* ── ÉTAPE 3 : CGU ── */}
+          {step === 'cgu' && (
+            <>
+              <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '4px', color: '#111a14' }}>Conditions d'utilisation</h1>
+              <p style={{ color: '#6b7c6e', fontSize: '0.82rem', marginBottom: '20px' }}>Lisez et acceptez avant de continuer</p>
+
+              {/* CGU */}
+              <div style={{ background: '#f5f7f5', borderRadius: '10px', padding: '14px', marginBottom: '14px', border: '1px solid #e8ede9', maxHeight: '160px', overflowY: 'auto' }}>
+                <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', marginBottom: '8px', color: '#111a14' }}>Conditions Générales d'Utilisation</p>
+                <p style={{ fontSize: '0.75rem', color: '#6b7c6e', lineHeight: 1.7 }}>
+                  SokoDeal est une plateforme de mise en relation entre acheteurs et vendeurs. En utilisant SokoDeal, vous acceptez de fournir des informations exactes, de ne pas publier de contenu illégal, trompeur ou frauduleux. SokoDeal se réserve le droit de supprimer tout contenu ou compte ne respectant pas ces règles. L'utilisation de la plateforme est gratuite pour les particuliers dans la limite de 5 annonces actives. SokoDeal ne peut être tenu responsable des transactions effectuées entre utilisateurs.
+                </p>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', marginBottom: '14px' }}>
+                <input type="checkbox" checked={acceptCGU} onChange={e => setAcceptCGU(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#1a7a4a', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.82rem', color: '#333', lineHeight: 1.5 }}>
+                  J'ai lu et j'accepte les <a href="/cgu" target="_blank" style={{ color: '#1a7a4a', fontWeight: 700 }}>Conditions Générales d'Utilisation</a>
+                </span>
+              </label>
+
+              {/* Anti-arnaque */}
+              <div style={{ background: '#fffbeb', borderRadius: '10px', padding: '14px', marginBottom: '14px', border: '1px solid #fde68a' }}>
+                <p style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', marginBottom: '8px', color: '#78350f' }}>⚠️ Politique anti-arnaque</p>
+                <p style={{ fontSize: '0.75rem', color: '#78350f', lineHeight: 1.7 }}>
+                  SokoDeal ne rembourse pas les pertes liées à des arnaques ou fraudes entre utilisateurs. Nous vous conseillons de toujours rencontrer le vendeur en personne dans un lieu public, de vérifier l'article avant tout paiement, et de ne jamais envoyer d'argent à l'avance. En cas d'arnaque, signalez l'annonce via le bouton "Signaler" et contactez les autorités locales.
+                </p>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', marginBottom: '20px' }}>
+                <input type="checkbox" checked={acceptArnaque} onChange={e => setAcceptArnaque(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#1a7a4a', cursor: 'pointer', marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.82rem', color: '#333', lineHeight: 1.5 }}>
+                  Je comprends que SokoDeal ne rembourse pas les arnaques et j'accepte d'utiliser la plateforme à mes risques
+                </span>
+              </label>
+
+              {error && <div style={{ background: '#fff1f0', border: '1px solid #ffd6d6', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>⚠️ {error}</div>}
+
+              <button onClick={handleFinal} disabled={!acceptCGU || !acceptArnaque}
+                style={{ width: '100%', padding: '13px', background: !acceptCGU || !acceptArnaque ? '#e8ede9' : '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: !acceptCGU || !acceptArnaque ? '#6b7c6e' : 'white', cursor: !acceptCGU || !acceptArnaque ? 'not-allowed' : 'pointer', marginBottom: '10px' }}>
+                ✅ Créer mon compte
+              </button>
+              <button onClick={() => setStep('identity')}
+                style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #e8ede9', borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.85rem', color: '#6b7c6e', cursor: 'pointer' }}>
+                ← Retour
+              </button>
+            </>
+          )}
+
+          {/* ── UPLOADING ── */}
+          {step === 'uploading' && (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>📤</div>
+              <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.2rem', marginBottom: '8px', color: '#111a14' }}>Création en cours...</h2>
+              <p style={{ color: '#6b7c6e', fontSize: '0.88rem' }}>Quelques secondes...</p>
+              <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: '10px', height: '10px', background: '#1a7a4a', borderRadius: '50%', animation: `bounce 1s ease-in-out ${i * 0.2}s infinite` }} />
+                ))}
+              </div>
+              <style>{`@keyframes bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-8px);opacity:1} }`}</style>
+            </div>
+          )}
+
+          {/* ── SUCCESS ── */}
+          {step === 'success' && (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ width: '72px', height: '72px', background: '#e8f5ee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto 16px' }}>🎉</div>
+              <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '8px', color: '#111a14' }}>Bienvenue sur SokoDeal !</h2>
+              <p style={{ color: '#6b7c6e', marginBottom: '24px', fontSize: '0.88rem', lineHeight: 1.6 }}>
+                Votre compte est vérifié. Le badge ✅ apparaît sur votre profil.
+              </p>
+              <button onClick={() => window.location.href = '/publier'}
+                style={{ width: '100%', padding: '13px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer', marginBottom: '10px' }}>
+                Publier une annonce
+              </button>
+              <button onClick={() => window.location.href = '/'}
+                style={{ width: '100%', padding: '13px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.88rem', color: '#6b7c6e', cursor: 'pointer' }}>
+                Voir les annonces
               </button>
             </div>
+          )}
+        </div>
 
-            {/* Conseils */}
-            <div style={{ background: '#fffbeb', borderRadius: '12px', padding: '16px', border: '1px solid #fde68a' }}>
-              <h3 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.82rem', marginBottom: '10px', color: '#78350f' }}>
-                Conseils pour une vérification réussie
-              </h3>
-              {[
-                'Document bien éclairé et entier',
-                'Évitez les reflets et zones floues',
-                'Recto de la carte suffisant',
-                'Photo nette, pas de document froissé',
-              ].map((tip, i) => (
-                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '5px', fontSize: '0.78rem', color: '#78350f' }}>
-                  <span style={{ fontWeight: 700 }}>✓</span> {tip}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.75rem', color: '#9ca3af' }}>
+          © 2025 SokoDeal · Made in Africa 🌍
+        </p>
       </div>
     </div>
   )
