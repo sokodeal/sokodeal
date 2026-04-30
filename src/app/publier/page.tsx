@@ -14,6 +14,8 @@ const INDICATIFS = [
   { code: '+1', flag: '🇺🇸', pays: 'USA/Canada' },
 ]
 
+const isImmo = (cat: string) => ['immo-vente', 'immo-location', 'immo-terrain'].includes(cat)
+
 export default function PublierPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -25,6 +27,16 @@ export default function PublierPage() {
     whatsapp: '', whatsapp_indicatif: '+250',
     whatsapp_same: true,
     hide_phone: false,
+  })
+  const [immoForm, setImmoForm] = useState({
+    immo_type: '',
+    surface: '',
+    chambres: '',
+    salles_de_bain: '',
+    etage: '',
+    meuble: false,
+    etat: '',
+    charges_incluses: false,
   })
   const [msg, setMsg] = useState('')
 
@@ -46,7 +58,6 @@ export default function PublierPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/auth?mode=login'; return }
 
-    // Vérifier identité
     const { data: userData } = await supabase
       .from('users')
       .select('plan, is_verified')
@@ -60,19 +71,15 @@ export default function PublierPage() {
       return
     }
 
-    // Vérifier limite plan gratuit
-
     const plan = userData?.plan || 'gratuit'
-
     if (plan === 'gratuit') {
       const { count } = await supabase
         .from('ads')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('is_active', true)
-
       if ((count || 0) >= 5) {
-        setMsg('🔒 Limite atteinte — Le plan gratuit permet 5 annonces actives maximum. Passez au plan Pro pour publier sans limite.')
+        setMsg('🔒 Limite atteinte — Le plan gratuit permet 5 annonces actives maximum.')
         setLoading(false)
         return
       }
@@ -93,17 +100,34 @@ export default function PublierPage() {
       ? fullPhone
       : (form.whatsapp ? form.whatsapp_indicatif + ' ' + form.whatsapp : '')
 
-    const { error } = await supabase.from('ads').insert([{
-      title: form.title, category: form.category,
-      price: parseFloat(form.price), description: form.description,
-      province: form.ville, district: form.district,
+    const adData: any = {
+      title: form.title,
+      category: form.category,
+      price: parseFloat(form.price),
+      description: form.description,
+      province: form.ville,
+      district: form.district,
       phone: fullPhone,
       whatsapp: fullWhatsapp,
       hide_phone: form.hide_phone,
       images: imageUrls,
-      is_active: true, user_id: user.id,
-    }])
+      is_active: true,
+      user_id: user.id,
+    }
 
+    // Ajouter champs immo si catégorie immo
+    if (isImmo(form.category)) {
+      if (immoForm.immo_type) adData.immo_type = immoForm.immo_type
+      if (immoForm.surface) adData.surface = parseInt(immoForm.surface)
+      if (immoForm.chambres) adData.chambres = parseInt(immoForm.chambres)
+      if (immoForm.salles_de_bain) adData.salles_de_bain = parseInt(immoForm.salles_de_bain)
+      if (immoForm.etage) adData.etage = parseInt(immoForm.etage)
+      if (immoForm.etat) adData.etat = immoForm.etat
+      adData.meuble = immoForm.meuble
+      adData.charges_incluses = immoForm.charges_incluses
+    }
+
+    const { error } = await supabase.from('ads').insert([adData])
     if (error) { setMsg(error.message); setLoading(false); return }
     setSuccess(true); setLoading(false)
   }
@@ -121,6 +145,12 @@ export default function PublierPage() {
     'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
   ]
 
+  const immoTypes: any = {
+    'immo-vente': ['Appartement','Villa','Studio','Duplex','Bureau','Commerce','Autre'],
+    'immo-location': ['Appartement','Villa','Studio','Duplex','Bureau','Commerce','Autre'],
+    'immo-terrain': ['Terrain nu','Terrain agricole','Terrain commercial','Terrain residentiel'],
+  }
+
   if (success) return (
     <div style={{minHeight:'100vh', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'}}>
       <div style={{background:'white', borderRadius:'16px', padding:'40px', maxWidth:'440px', width:'100%', textAlign:'center', border:'1px solid #e8ede9', boxShadow:'0 4px 24px rgba(0,0,0,0.06)'}}>
@@ -131,7 +161,7 @@ export default function PublierPage() {
           + Publier une autre annonce
         </a>
         <a href="/" style={{display:'block', padding:'12px', background:'#1a7a4a', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'white', textDecoration:'none'}}>
-          Voir les annonces →
+          Voir les annonces
         </a>
       </div>
     </div>
@@ -173,21 +203,108 @@ export default function PublierPage() {
           <option value="education">📚 Éducation</option>
         </select>
 
+        {/* CHAMPS IMMO DYNAMIQUES */}
+        {isImmo(form.category) && (
+          <div style={{background:'#e8f5ee', borderRadius:'12px', padding:'16px', marginBottom:'16px', border:'1px solid #b7dfca'}}>
+            <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'#1a7a4a', marginBottom:'14px'}}>
+              🏡 Informations immobilières
+            </p>
+
+            {/* TYPE DE BIEN */}
+            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Type de bien</label>
+            <select value={immoForm.immo_type} onChange={e => setImmoForm({...immoForm, immo_type: e.target.value})}
+              style={{...inp, marginBottom:'10px'}}>
+              <option value="">Choisir...</option>
+              {(immoTypes[form.category] || []).map((t: string) => <option key={t} value={t}>{t}</option>)}
+            </select>
+
+            {/* SURFACE */}
+            <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Surface (m²)</label>
+            <input type="number" placeholder="Ex: 85" value={immoForm.surface}
+              onChange={e => setImmoForm({...immoForm, surface: e.target.value})}
+              style={{...inp, marginBottom:'10px'}} />
+
+            {/* CHAMBRES + SDB (pas pour terrain) */}
+            {form.category !== 'immo-terrain' && (
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Chambres</label>
+                  <select value={immoForm.chambres} onChange={e => setImmoForm({...immoForm, chambres: e.target.value})}
+                    style={{...inp, marginBottom:0}}>
+                    <option value="">-</option>
+                    {['Studio','1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Salles de bain</label>
+                  <select value={immoForm.salles_de_bain} onChange={e => setImmoForm({...immoForm, salles_de_bain: e.target.value})}
+                    style={{...inp, marginBottom:0}}>
+                    <option value="">-</option>
+                    {['1','2','3','4+'].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* ETAGE + ETAT */}
+            {form.category !== 'immo-terrain' && (
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Étage</label>
+                  <select value={immoForm.etage} onChange={e => setImmoForm({...immoForm, etage: e.target.value})}
+                    style={{...inp, marginBottom:0}}>
+                    <option value="">-</option>
+                    {['RDC','1','2','3','4','5+'].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>État</label>
+                  <select value={immoForm.etat} onChange={e => setImmoForm({...immoForm, etat: e.target.value})}
+                    style={{...inp, marginBottom:0}}>
+                    <option value="">-</option>
+                    <option value="neuf">Neuf</option>
+                    <option value="bon-etat">Bon état</option>
+                    <option value="a-renover">À rénover</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* MEUBLE + CHARGES (location seulement) */}
+            {form.category === 'immo-location' && (
+              <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', padding:'10px', background:'white', borderRadius:'8px', border:'1px solid #e8ede9'}}>
+                  <input type="checkbox" checked={immoForm.meuble} onChange={e => setImmoForm({...immoForm, meuble: e.target.checked})}
+                    style={{width:'15px', height:'15px', accentColor:'#1a7a4a', cursor:'pointer'}} />
+                  <span style={{fontSize:'0.82rem', color:'#111a14', fontFamily:'DM Sans,sans-serif', fontWeight:600}}>Meublé</span>
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', padding:'10px', background:'white', borderRadius:'8px', border:'1px solid #e8ede9'}}>
+                  <input type="checkbox" checked={immoForm.charges_incluses} onChange={e => setImmoForm({...immoForm, charges_incluses: e.target.checked})}
+                    style={{width:'15px', height:'15px', accentColor:'#1a7a4a', cursor:'pointer'}} />
+                  <span style={{fontSize:'0.82rem', color:'#111a14', fontFamily:'DM Sans,sans-serif', fontWeight:600}}>Charges incluses</span>
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TITRE */}
         <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Titre</label>
-        <input type="text" placeholder="Ex: iPhone 15 Pro Max 256Go" value={form.title}
+        <input type="text" placeholder="Ex: Villa 4 chambres Kigali Kimironko" value={form.title}
           onChange={e => setForm({...form, title: e.target.value})} style={inp}/>
 
         {/* PRIX */}
-        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Prix (RWF)</label>
-        <input type="number" placeholder="Ex: 850000" value={form.price}
+        <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>
+          Prix (RWF){form.category === 'immo-location' ? ' / mois' : ''}
+        </label>
+        <input type="number" placeholder="Ex: 85000000" value={form.price}
           onChange={e => setForm({...form, price: e.target.value})} style={inp}/>
 
         {/* DESCRIPTION */}
         <label style={{display:'block', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Description</label>
-        <textarea placeholder="Décrivez votre article en détail..." value={form.description}
+        <textarea placeholder={isImmo(form.category) ? "Décrivez le bien : emplacement, état, équipements, proximité des commodités..." : "Décrivez votre article en détail..."} value={form.description}
           onChange={e => setForm({...form, description: e.target.value})}
-          style={{...inp, minHeight:'80px', resize:'vertical'}}/>
+          style={{...inp, minHeight: isImmo(form.category) ? '120px' : '80px', resize:'vertical'}}/>
 
         {/* VILLE */}
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
@@ -297,7 +414,7 @@ export default function PublierPage() {
         </div>
 
         {msg && (
-          <div style={{background:'#fff1f0', border:'1px solid #ffd6d6', color:'#c0392b', padding:'10px 14px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'14px'}}>
+          <div style={{background: msg.includes('🔒') ? '#fff7ed' : '#fff1f0', border:'1px solid ' + (msg.includes('🔒') ? '#fed7aa' : '#ffd6d6'), color: msg.includes('🔒') ? '#ea580c' : '#c0392b', padding:'10px 14px', borderRadius:'8px', fontSize:'0.82rem', marginBottom:'14px'}}>
             {msg}
           </div>
         )}
@@ -309,7 +426,7 @@ export default function PublierPage() {
         }}>{loading ? '⏳ Publication...' : 'Publier mon annonce'}</button>
 
         <a href="/" style={{display:'block', textAlign:'center', color:'#6b7c6e', fontSize:'0.82rem', textDecoration:'none'}}>
-          ← Retour à l'accueil
+          Retour
         </a>
       </div>
     </div>

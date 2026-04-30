@@ -316,7 +316,13 @@ export default function Home() {
               transition:'all 0.15s'
             }}>{item.label}</a>
           ))}
-          <a href="#" onClick={e => { e.preventDefault(); setActiveSection('jobs') }} style={{
+          <a href="/immo" style={{
+  display:'flex', alignItems:'center', padding:'9px 14px',
+  color: '#6b7c6e', textDecoration:'none', fontSize:'0.82rem',
+  fontWeight: 400, whiteSpace:'nowrap',
+  borderBottom: '2px solid transparent',
+}}>🏡 Immo</a>
+<a href="#" onClick={e => { e.preventDefault(); setActiveSection('jobs') }} style={{
             display:'flex', alignItems:'center', padding:'9px 14px',
             color: activeSection === 'jobs' ? '#1a7a4a' : '#6b7c6e',
             textDecoration:'none', fontSize:'0.82rem', fontWeight: activeSection === 'jobs' ? 700 : 400,
