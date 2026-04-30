@@ -130,18 +130,19 @@ export default function Home() {
       result = result.filter(ad => ad.title?.toLowerCase().includes(q) || ad.description?.toLowerCase().includes(q) || ad.category?.toLowerCase().includes(q))
     }
 
-    // Filtre catégorie — immo regroupe les 3
     if (filterCat) {
       if (filterCat === 'immo') {
-        result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
+        if (filterSubcat) {
+          result = result.filter(ad => ad.category === filterSubcat)
+        } else {
+          result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
+        }
       } else {
         result = result.filter(ad => ad.category === filterCat)
+        if (filterSubcat) {
+          result = result.filter(ad => ad.subcategory === filterSubcat)
+        }
       }
-    }
-
-    // ✅ Filtre sous-catégorie
-    if (filterSubcat) {
-      result = result.filter(ad => ad.subcategory === filterSubcat)
     }
 
     if (filterVille) result = result.filter(ad => ad.province?.toLowerCase().includes(filterVille.toLowerCase()) || ad.district?.toLowerCase().includes(filterVille.toLowerCase()))
@@ -388,22 +389,41 @@ export default function Home() {
             </div>
 
             {showFilters && (
-              <div className="filters-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
-                <div>
-                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Categorie</label>
-                  <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setFilterSubcat('') }} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
-                    <option value="">Toutes</option>
-                    <optgroup label="🏡 Immobilier">
-                      <option value="immo">Tout l immobilier</option>
-                      <option value="immo-vente">↳ Vente</option>
-                      <option value="immo-location">↳ Location</option>
-                      <option value="immo-terrain">↳ Terrain</option>
-                    </optgroup>
-                    {MAIN_CATEGORIES.filter(c => c.value !== 'immo').map(c => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
+  <div className="filters-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
+    
+    {/* Sous-catégorie */}
+    <div>
+      <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Sous-categorie</label>
+      <select value={filterSubcat} onChange={e => setFilterSubcat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}} disabled={subcats.length === 0}>
+        <option value="">{subcats.length === 0 ? 'Choisissez une catégorie d\'abord' : 'Toutes'}</option>
+        {subcats.filter(s => s.value !== '').map(s => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Ville */}
+    <div>
+      <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Ville</label>
+      <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
+        <option value="">Toutes</option>
+        {villes.map(v => <option key={v} value={v}>{v}</option>)}
+      </select>
+    </div>
+
+    {/* Prix */}
+    <div>
+      <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Prix (RWF)</label>
+      <div style={{display:'flex', gap:'6px'}}>
+        <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'50%', padding:'8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
+        <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'50%', padding:'8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
+      </div>
+    </div>
+
+  </div>
+)}
                   </select>
-                </div>
+                </d
 
                 {/* ✅ Sous-catégorie dans les filtres avancés */}
                 <div>
