@@ -23,7 +23,7 @@ export default function PublierPage() {
   const [photos, setPhotos] = useState<File[]>([])
   const [form, setForm] = useState({
     title: '', category: '', subcategory: '', price: '', description: '',
-    ville: '', district: '', rue: '',
+    ville: '', district: '',
     phone: '', phone_indicatif: '+250',
     whatsapp: '', whatsapp_indicatif: '+250',
     whatsapp_same: true,
@@ -111,7 +111,6 @@ export default function PublierPage() {
       description: form.description,
       province: form.ville,
       district: form.district,
-      sector: form.rue,
       phone: fullPhone,
       whatsapp: fullWhatsapp,
       hide_phone: form.hide_phone,
@@ -327,40 +326,6 @@ export default function PublierPage() {
 
         {/* VILLE */}
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-  <div>
-    <label style={label}>Ville</label>
-    <select value={form.ville} onChange={e => setForm({...form, ville: e.target.value})}
-      style={{...inp, cursor:'pointer', marginBottom:'12px'}}>
-      <option value="">Choisir</option>
-      {villes.map(v => <option key={v} value={v}>{v}</option>)}
-    </select>
-  </div>
-  <div>
-    <label style={label}>Quartier</label>
-    <input type="text" placeholder="Ex: Kicukiro" value={form.district}
-      onChange={e => setForm({...form, district: e.target.value})} style={inp}/>
-  </div>
-</div>
-
-{/* Rue — pour tous mais obligatoire pour immo */}
-{isImmo(form.category) && (
-  <div style={{marginBottom:'12px'}}>
-    <label style={label}>
-      Numéro et nom de rue
-      <span style={{color:'#e63946', marginLeft:'4px'}}>*</span>
-    </label>
-    <input
-      type="text"
-      placeholder="Ex: 45 KG 11 Ave, Kimironko"
-      value={form.rue}
-      onChange={e => setForm({...form, rue: e.target.value})}
-      style={inp}
-    />
-    <p style={{fontSize:'0.72rem', color:'#6b7c6e', marginTop:'-8px', marginBottom:'12px'}}>
-      📍 Permet de localiser précisément le bien sur la carte
-    </p>
-  </div>
-)}
           <div>
             <label style={label}>Ville</label>
             <select value={form.ville} onChange={e => setForm({...form, ville: e.target.value})}
