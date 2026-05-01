@@ -774,47 +774,36 @@ export default function ProfilPage() {
         )}
 
         {activeTab === 'abonnement' && (
-          <div>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'16px', color:'#111a14'}}>Choisir un abonnement</h2>
-            <div className="plans-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
-              {[
-                { name:'Gratuit', price:'0', period:'Pour toujours', color:'#6b7c6e', features:['5 annonces max','Photos limitees','Support standard'], current:true },
-                { name:'Pro', price:'15 000', period:'par mois', color:'#1a7a4a', features:['Annonces illimitees','5 photos par annonce','Badge Pro','1 boost par mois','Support prioritaire'], popular:true },
-                { name:'Agence', price:'50 000', period:'par mois', color:'#0f5233', features:['Tout du Pro','Page agence dediee','5 boosts par mois','Dashboard avance','Support dedie'] },
-              ].map((plan, i) => (
-                <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: plan.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative'}}>
-                  {plan.popular && <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', background:'#1a7a4a', color:'white', padding:'3px 12px', borderRadius:'20px', fontSize:'0.68rem', fontWeight:700, whiteSpace:'nowrap'}}>Le plus populaire</div>}
-                  <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:plan.color, marginBottom:'6px'}}>{plan.name}</h3>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.5rem', marginBottom:'3px', color:'#111a14'}}>{plan.price} <span style={{fontSize:'0.78rem', fontWeight:600, color:'#6b7c6e'}}>RWF</span></div>
-                  <div style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'16px'}}>{plan.period}</div>
-                  <div style={{marginBottom:'16px'}}>{plan.features.map((f, j) => <div key={j} style={{display:'flex', alignItems:'center', gap:'6px', marginBottom:'6px', fontSize:'0.8rem', color:'#111a14'}}><span style={{color:'#1a7a4a', fontWeight:700}}>✓</span> {f}</div>)}</div>
-                  <button style={{width:'100%', padding:'10px', background: (plan as any).current ? '#f5f7f5' : plan.color, color: (plan as any).current ? '#6b7c6e' : 'white', border: (plan as any).current ? '1px solid #e8ede9' : 'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', cursor: (plan as any).current ? 'default' : 'pointer'}}>
-                    {(plan as any).current ? 'Plan actuel' : 'Choisir'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+  <div style={{textAlign:'center', padding:'40px'}}>
+    <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>💳</div>
+    <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px', color:'#111a14'}}>
+      Plans & Boosts
+    </h2>
+    <p style={{color:'#6b7c6e', fontSize:'0.88rem', marginBottom:'24px'}}>
+      Gérez votre abonnement et boostez vos annonces
+    </p>
+    <button onClick={() => window.location.href='/abonnement'}
+      style={{padding:'13px 32px', background:'#1a7a4a', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'white', cursor:'pointer'}}>
+      Voir les plans →
+    </button>
+  </div>
+)}
 
         {activeTab === 'boosts' && (
-          <div>
-            <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'6px', color:'#111a14'}}>Booster une annonce</h2>
-            <p style={{color:'#6b7c6e', fontSize:'0.85rem', marginBottom:'16px'}}>Un boost met votre annonce en tete de liste.</p>
-            <div className="boost-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'20px'}}>
-              {boostPlans.map((boost, i) => (
-                <div key={i} style={{background:'white', borderRadius:'14px', padding:'20px', border: boost.popular ? '1.5px solid #1a7a4a' : '1px solid #e8ede9', position:'relative', textAlign:'center'}}>
-                  {boost.popular && <div style={{position:'absolute', top:'-10px', left:'50%', transform:'translateX(-50%)', background:'#1a7a4a', color:'white', padding:'3px 12px', borderRadius:'20px', fontSize:'0.68rem', fontWeight:700, whiteSpace:'nowrap'}}>Le plus vendu</div>}
-                  <div style={{fontSize:'2rem', marginBottom:'6px'}}>{boost.icon}</div>
-                  <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.9rem', color:boost.color, marginBottom:'4px'}}>{boost.name}</h3>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', marginBottom:'10px', color:'#111a14'}}>{boost.price} <span style={{fontSize:'0.75rem', fontWeight:600, color:'#6b7c6e'}}>RWF</span></div>
-                  <div style={{marginBottom:'14px'}}>{boost.features.map((f, j) => <div key={j} style={{display:'flex', alignItems:'center', gap:'6px', marginBottom:'4px', fontSize:'0.75rem', textAlign:'left', color:'#111a14'}}><span style={{color:boost.color, fontWeight:700}}>✓</span> {f}</div>)}</div>
-                  <button onClick={() => { setSelectedBoost(boost); setSelectedAd(null) }} style={{width:'100%', padding:'10px', background:boost.color, color:'white', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', cursor:'pointer'}}>Booster</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+  <div style={{textAlign:'center', padding:'40px'}}>
+    <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>⚡</div>
+    <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.2rem', marginBottom:'8px', color:'#111a14'}}>
+      Booster une annonce
+    </h2>
+    <p style={{color:'#6b7c6e', fontSize:'0.88rem', marginBottom:'24px'}}>
+      Mettez vos annonces en avant et augmentez leur visibilité
+    </p>
+    <button onClick={() => window.location.href='/abonnement'}
+      style={{padding:'13px 32px', background:'#f5a623', border:'none', borderRadius:'10px', fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'#111a14', cursor:'pointer'}}>
+      Booster une annonce →
+    </button>
+  </div>
+)}
 
         {activeTab === 'alertes' && user && (
           <AlertesTab userId={user.id} />
