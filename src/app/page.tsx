@@ -1,9 +1,29 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import FavoriteButton from '@/components/FavoriteButton'
 import { useUnreadCount } from '@/hooks/useUnreadCount'
 import { SUBCATEGORIES, MAIN_CATEGORIES } from '@/lib/categories'
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+
+// Coordonnées approximatives des villes rwandaises
+const VILLE_COORDS: Record<string, [number, number]> = {
+  'Kigali': [30.0619, -1.9441],
+  'Butare': [29.7392, -2.5967],
+  'Musanze': [29.6349, -1.4994],
+  'Ruhengeri': [29.6349, -1.4994],
+  'Gisenyi': [29.2567, -1.7025],
+  'Cyangugu': [28.9077, -2.4847],
+  'Kibuye': [29.3497, -2.0603],
+  'Byumba': [30.0677, -1.5756],
+  'Rwamagana': [30.4344, -1.9494],
+  'Rubavu': [29.2567, -1.7025],
+  'Rusizi': [28.9077, -2.4847],
+  'Huye': [29.7392, -2.5967],
+  'Nyagatare': [30.3285, -1.2985],
+  'Muhanga': [29.7511, -2.0836],
+]
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
@@ -17,13 +37,22 @@ export default function Home() {
   const [filterVille, setFilterVille] = useState('')
   const [filterPriceMin, setFilterPriceMin] = useState('')
   const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [filterChambres, setFilterChambres] = useState('')
+  const [filterType, setFilterType] = useState('')
   const [sortBy, setSortBy] = useState('recent')
   const [showFilters, setShowFilters] = useState(false)
   const [toast, setToast] = useState<any>(null)
   const [profileResults, setProfileResults] = useState<any[]>([])
   const [searchingProfiles, setSearchingProfiles] = useState(false)
   const [searchSaved, setSearchSaved] = useState(false)
+  const [selectedImmoAd, setSelectedImmoAd] = useState<any>(null)
+  const [showMap, setShowMap] = useState(false) // mobile map toggle
+  const mapRef = useRef<any>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
   const { unreadCount } = useUnreadCount()
+
+  const isImmoMode = filterCat === 'immo' || filterCat === 'immo-vente' || filterCat === 'immo-location' || filterCat === 'immo-terrain'
 
   const villes = [
     'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
@@ -38,15 +67,22 @@ export default function Home() {
     'agriculture':'🌾','materiaux':'🧱','sante':'💊','sport':'⚽','education':'📚'
   }
 
-  // Sous-catégories disponibles pour le filtre actif
+  const catLabel: any = {
+    'immo-vente':'Vente','immo-location':'Location','immo-terrain':'Terrain',
+  }
+
   const subcats = SUBCATEGORIES[filterCat] || []
 
   const handleNavCat = (cat: string) => {
     setFilterCat(cat)
     setFilterSubcat('')
+    setFilterChambres('')
+    setFilterType('')
     setActiveSection('main')
+    setSelectedImmoAd(null)
   }
 
+  // ── Chargement des annonces ──
   useEffect(() => {
     const fetchAds = async () => {
       const { data } = await supabase.from('ads').select('*').eq('is_active', true).order('created_at', { ascending: false })
@@ -74,6 +110,7 @@ export default function Home() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // ── Notifications ──
   useEffect(() => {
     if (!user) return
     const ch = supabase.channel('notifs-' + user.id.slice(0, 8))
@@ -87,6 +124,93 @@ export default function Home() {
     return () => { supabase.removeChannel(ch) }
   }, [user])
 
+  // ── Initialisation Mapbox ──
+  useEffect(() => {
+    if (!isImmoMode || !mapRef.current || mapInstanceRef.current) return
+    if (!MAPBOX_TOKEN) return
+
+    const initMap = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default
+      mapboxgl.accessToken = MAPBOX_TOKEN!
+
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [30.0619, -1.9441], // Kigali
+        zoom: 9,
+      })
+
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      mapInstanceRef.current = map
+    }
+
+    initMap()
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+    }
+  }, [isImmoMode])
+
+  // ── Mise à jour des pins sur la map ──
+  useEffect(() => {
+    if (!isImmoMode || !mapInstanceRef.current) return
+
+    const updateMarkers = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default
+
+      // Supprimer les anciens markers
+      markersRef.current.forEach(m => m.remove())
+      markersRef.current = []
+
+      const immoAds = filtered.filter(ad =>
+        ['immo-vente', 'immo-location', 'immo-terrain'].includes(ad.category)
+      )
+
+      immoAds.forEach(ad => {
+        const coords = VILLE_COORDS[ad.province] || VILLE_COORDS['Kigali']
+
+        // Offset léger pour éviter les superpositions
+        const offsetLng = (Math.random() - 0.5) * 0.02
+        const offsetLat = (Math.random() - 0.5) * 0.02
+
+        const el = document.createElement('div')
+        el.innerHTML = `
+          <div style="
+            background: ${selectedImmoAd?.id === ad.id ? '#0f5233' : ad.is_boosted ? '#f5a623' : '#1a7a4a'};
+            color: white;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-family: Syne, sans-serif;
+            font-weight: 800;
+            font-size: 0.72rem;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            border: 2px solid white;
+            transition: all 0.15s;
+          ">
+            ${Number(ad.price).toLocaleString()} RWF
+          </div>
+        `
+        el.style.cursor = 'pointer'
+        el.addEventListener('click', () => setSelectedImmoAd(ad))
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([coords[0] + offsetLng, coords[1] + offsetLat])
+          .addTo(mapInstanceRef.current)
+
+        markersRef.current.push(marker)
+      })
+    }
+
+    const timer = setTimeout(updateMarkers, 300)
+    return () => clearTimeout(timer)
+  }, [filtered, isImmoMode, selectedImmoAd])
+
+  // ── Filtrage ──
   const saveToHistory = async (q: string, cat: string, ville: string) => {
     if (!user || (!q && !cat && !ville)) return
     await supabase.from('search_history').insert([{ user_id: user.id, query: q || null, category: cat || null, province: ville || null }])
@@ -130,23 +254,21 @@ export default function Home() {
       result = result.filter(ad => ad.title?.toLowerCase().includes(q) || ad.description?.toLowerCase().includes(q) || ad.category?.toLowerCase().includes(q))
     }
 
-    // Filtre catégorie — immo regroupe les 3
     if (filterCat) {
       if (filterCat === 'immo') {
-        result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
+        if (filterSubcat) result = result.filter(ad => ad.category === filterSubcat)
+        else result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
       } else {
         result = result.filter(ad => ad.category === filterCat)
+        if (filterSubcat) result = result.filter(ad => ad.subcategory === filterSubcat)
       }
     }
 
-    // ✅ Filtre sous-catégorie
-    if (filterSubcat) {
-      result = result.filter(ad => ad.subcategory === filterSubcat)
-    }
-
-    if (filterVille) result = result.filter(ad => ad.province?.toLowerCase().includes(filterVille.toLowerCase()) || ad.district?.toLowerCase().includes(filterVille.toLowerCase()))
+    if (filterVille) result = result.filter(ad => ad.province?.toLowerCase().includes(filterVille.toLowerCase()))
     if (filterPriceMin) result = result.filter(ad => ad.price >= parseInt(filterPriceMin))
     if (filterPriceMax) result = result.filter(ad => ad.price <= parseInt(filterPriceMax))
+    if (filterChambres) result = result.filter(ad => ad.chambres === filterChambres)
+    if (filterType) result = result.filter(ad => ad.immo_type === filterType)
 
     if (sortBy === 'recent') result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     else if (sortBy === 'ancien') result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
@@ -159,26 +281,29 @@ export default function Home() {
       if (search.trim() || filterCat || filterVille) saveToHistory(search.trim(), filterCat, filterVille)
     }, 1500)
     return () => clearTimeout(timer)
-  }, [search, filterCat, filterSubcat, filterVille, filterPriceMin, filterPriceMax, sortBy, ads])
+  }, [search, filterCat, filterSubcat, filterVille, filterPriceMin, filterPriceMax, filterChambres, filterType, sortBy, ads])
 
   const resetFilters = () => {
     setSearch(''); setFilterCat(''); setFilterSubcat(''); setFilterVille('')
     setFilterPriceMin(''); setFilterPriceMax(''); setSortBy('recent')
+    setFilterChambres(''); setFilterType('')
     setProfileResults([])
+    setSelectedImmoAd(null)
   }
 
   const hasFilters = search || filterCat || filterVille || filterPriceMin || filterPriceMax || sortBy !== 'recent'
 
   const mockAds = [
-    {id:'m1', category:'immo-vente', title:'Villa 4 chambres Kigali Niboye', price:185000000, images:[], province:'Kigali', is_boosted:true},
+    {id:'m1', category:'immo-vente', title:'Villa 4 chambres Kigali Niboye', price:185000000, images:[], province:'Kigali', is_boosted:true, surface:280, chambres:'4'},
     {id:'m2', category:'voiture', title:'Toyota RAV4 2019 45 000 km', price:26500000, images:[], province:'Kigali', is_boosted:false},
     {id:'m3', category:'electronique', title:'Samsung Galaxy S24 Ultra Neuf', price:980000, images:[], province:'Musanze', is_boosted:false},
-    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Butare', is_boosted:false},
+    {id:'m4', category:'immo-location', title:'Appartement 3 pieces meuble', price:450000, images:[], province:'Butare', is_boosted:false, surface:85, chambres:'3'},
     {id:'m5', category:'moto', title:'Honda CB125 2022 18 000 km', price:3200000, images:[], province:'Gisenyi', is_boosted:false},
     {id:'m6', category:'animaux', title:'Vache laitiere Ankole 2 ans', price:1800000, images:[], province:'Rwamagana', is_boosted:false},
   ]
 
   const displayAds = ads.length > 0 ? filtered : mockAds
+  const immoAds = displayAds.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
 
   return (
     <>
@@ -188,7 +313,6 @@ export default function Home() {
         @media (max-width: 768px) {
           .hero-title { font-size: 1.7rem !important; }
           .ads-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-          .filters-grid { grid-template-columns: 1fr 1fr !important; }
           .btn-signup { display: none !important; }
           .header-inner { padding: 0 4% !important; height: 56px !important; }
           .deposer-btn { padding: 6px 8px !important; font-size: 0.75rem !important; }
@@ -197,11 +321,10 @@ export default function Home() {
           .mon-compte-label { display: none !important; }
           .search-bar { display: none !important; }
           .save-search-btn { display: none !important; }
-        }
-        @media (max-width: 480px) {
-          .ads-grid { grid-template-columns: 1fr !important; }
-          .filters-grid { grid-template-columns: 1fr !important; }
-          .hero-title { font-size: 1.4rem !important; }
+          .immo-layout { grid-template-columns: 1fr !important; }
+          .immo-map-panel { display: none; }
+          .immo-map-panel.show { display: block !important; }
+          .immo-list-panel.hide { display: none !important; }
         }
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
         .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; }
@@ -210,6 +333,10 @@ export default function Home() {
         .profile-card { transition: box-shadow 0.18s, transform 0.18s; }
         .nav-cat { transition: all 0.15s; }
         .nav-cat:hover { color: #1a7a4a !important; }
+        .immo-card:hover { border-color: #1a7a4a !important; }
+        .immo-card { transition: border-color 0.15s, box-shadow 0.15s; }
+        .mapboxgl-map { border-radius: 12px; }
+        @import url('https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css');
       `}</style>
 
       {toast && (
@@ -223,6 +350,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── HEADER ── */}
       <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9'}}>
         <div className="header-inner" style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'62px', gap:'14px', maxWidth:'1300px', margin:'0 auto'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none', flexShrink:0}}>
@@ -230,7 +358,7 @@ export default function Home() {
             <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.25rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
           </a>
 
-          <div className="search-bar" style={{flex:1, maxWidth:'480px', position:'relative'}}>
+          <div className="search-bar" style={{flex:1, maxWidth:'480px'}}>
             <div style={{display:'flex', background:'#f5f7f5', borderRadius:'9px', overflow:'hidden', border:'1px solid #e8ede9'}}>
               <input type="text" placeholder="Rechercher... ou @username" value={search}
                 onChange={e => { setSearch(e.target.value); setActiveSection('main') }}
@@ -270,7 +398,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ✅ Navbar catégories */}
+        {/* Navbar catégories */}
         <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto'}}>
           <a href="#" className="nav-cat" onClick={e => { e.preventDefault(); handleNavCat('') }}
             style={{display:'flex', alignItems:'center', padding:'9px 14px', color: filterCat === '' ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: filterCat === '' ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterCat === '' ? '2px solid #f5a623' : '2px solid transparent'}}>
@@ -289,8 +417,8 @@ export default function Home() {
           </a>
         </div>
 
-        {/* ✅ Barre sous-catégories — apparaît quand une catégorie avec subcats est sélectionnée */}
-        {subcats.length > 0 && (
+        {/* Sous-catégories */}
+        {subcats.length > 0 && !isImmoMode && (
           <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto', background:'#fafafa'}}>
             {subcats.map((sub) => (
               <a key={sub.value} href="#" className="nav-cat"
@@ -301,8 +429,68 @@ export default function Home() {
             ))}
           </div>
         )}
+
+        {/* ✅ Filtres immo inline dans le header */}
+        {isImmoMode && (
+          <div style={{borderTop:'1px solid #f0f4f1', padding:'8px 5%', background:'#f8fdf9', maxWidth:'1300px', margin:'0 auto', display:'flex', gap:'8px', flexWrap:'wrap', alignItems:'center'}}>
+            {/* Type de bien */}
+            <select value={filterSubcat} onChange={e => setFilterSubcat(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
+              <option value="">Tout type</option>
+              <option value="immo-vente">🏡 Vente</option>
+              <option value="immo-location">🏢 Location</option>
+              <option value="immo-terrain">🌿 Terrain</option>
+            </select>
+
+            {/* Ville */}
+            <select value={filterVille} onChange={e => setFilterVille(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
+              <option value="">Toutes villes</option>
+              {villes.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+
+            {/* Chambres */}
+            <select value={filterChambres} onChange={e => setFilterChambres(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
+              <option value="">Chambres</option>
+              {['1','2','3','4','5','6+'].map(n => <option key={n} value={n}>{n} ch.</option>)}
+            </select>
+
+            {/* Prix min */}
+            <input type="number" placeholder="Prix min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', width:'110px', color:'#111a14'}}/>
+
+            {/* Prix max */}
+            <input type="number" placeholder="Prix max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', width:'110px', color:'#111a14'}}/>
+
+            {/* Tri */}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              style={{padding:'7px 12px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer', color:'#111a14'}}>
+              <option value="recent">Plus récent</option>
+              <option value="moins-cher">Moins cher</option>
+              <option value="plus-cher">Plus cher</option>
+            </select>
+
+            <span style={{fontSize:'0.78rem', color:'#6b7c6e', marginLeft:'auto'}}>{immoAds.length} bien(s)</span>
+
+            {hasFilters && (
+              <button onClick={resetFilters} style={{padding:'7px 12px', background:'#fff7ed', color:'#ea580c', border:'1px solid #fed7aa', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.78rem', cursor:'pointer'}}>
+                Effacer
+              </button>
+            )}
+
+            {/* Bouton map mobile */}
+            <button onClick={() => setShowMap(!showMap)}
+              style={{display:'none', padding:'7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', marginLeft:'auto'}}
+              className="map-toggle-btn">
+              {showMap ? '📋 Liste' : '🗺️ Carte'}
+            </button>
+          </div>
+        )}
       </header>
 
+      {/* ── RECHERCHE @USERNAME ── */}
       {search.startsWith('@') && (
         <div style={{maxWidth:'1300px', margin:'0 auto', padding:'24px 5%'}}>
           <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', marginBottom:'14px', color:'#111a14'}}>Profils pour "{search}"</h2>
@@ -335,6 +523,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── HERO ── */}
       {!search.startsWith('@') && activeSection === 'main' && !search && !filterCat && (
         <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'52px 5% 44px'}}>
           <div style={{maxWidth:'1300px', margin:'0 auto'}}>
@@ -355,7 +544,140 @@ export default function Home() {
         </div>
       )}
 
-      {!search.startsWith('@') && activeSection === 'main' && (
+      {/* ── MODE IMMO — Layout SeLoger ── */}
+      {!search.startsWith('@') && activeSection === 'main' && isImmoMode && (
+        <div style={{display:'flex', height:'calc(100vh - 130px)', overflow:'hidden'}}>
+
+          {/* Liste immo */}
+          <div className={`immo-list-panel ${showMap ? 'hide' : ''}`}
+            style={{width:'420px', minWidth:'420px', overflowY:'auto', background:'#f5f7f5', padding:'16px', display:'flex', flexDirection:'column', gap:'12px'}}>
+
+            {loading ? (
+              <div style={{textAlign:'center', padding:'60px', color:'#6b7c6e'}}>Chargement...</div>
+            ) : immoAds.length === 0 ? (
+              <div style={{background:'white', borderRadius:'14px', padding:'40px', textAlign:'center', border:'1px solid #e8ede9'}}>
+                <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🏡</div>
+                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun bien trouvé</h3>
+                <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Modifiez vos filtres</p>
+                <button onClick={resetFilters} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
+                  Voir tout
+                </button>
+              </div>
+            ) : immoAds.map((ad: any) => (
+              <div key={ad.id} className="immo-card" onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + ad.id }}
+                style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)'}}>
+                {/* Photo */}
+                <div style={{height:'160px', background:'#f5f7f5', overflow:'hidden', position:'relative'}}>
+                  {ad.images && ad.images.length > 0 ? (
+                    <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                  ) : (
+                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3rem', opacity:0.3}}>🏡</div>
+                  )}
+                  {/* Badges */}
+                  <div style={{position:'absolute', top:'10px', left:'10px', display:'flex', gap:'6px'}}>
+                    {ad.is_boosted && <span style={{background:'#f5a623', color:'#111a14', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:800}}>⚡ Mis en avant</span>}
+                    <span style={{background: ad.category === 'immo-vente' ? '#1a7a4a' : ad.category === 'immo-location' ? '#0f5233' : '#6b7c6e', color:'white', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:700}}>
+                      {catLabel[ad.category] || ad.category}
+                    </span>
+                  </div>
+                  <div style={{position:'absolute', top:'10px', right:'10px'}} onClick={e => e.stopPropagation()}>
+                    <FavoriteButton adId={ad.id} onLogin={() => window.location.href='/auth?mode=login'} />
+                  </div>
+                </div>
+
+                {/* Infos */}
+                <div style={{padding:'14px'}}>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#0f5233', marginBottom:'4px'}}>
+                    {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600, color:'#6b7c6e'}}>RWF{ad.category === 'immo-location' ? '/mois' : ''}</span>
+                  </div>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'#111a14', marginBottom:'8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {ad.title}
+                  </div>
+
+                  {/* Caractéristiques */}
+                  <div style={{display:'flex', gap:'12px', marginBottom:'8px', flexWrap:'wrap'}}>
+                    {ad.surface && (
+                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                        📐 {ad.surface} m²
+                      </span>
+                    )}
+                    {ad.chambres && (
+                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                        🛏️ {ad.chambres} ch.
+                      </span>
+                    )}
+                    {ad.salles_de_bain && (
+                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                        🚿 {ad.salles_de_bain} sdb
+                      </span>
+                    )}
+                    {ad.surface && ad.price && ad.category !== 'immo-location' && (
+                      <span style={{fontSize:'0.75rem', color:'#1a7a4a', fontWeight:600}}>
+                        {Math.round(ad.price / ad.surface).toLocaleString()} RWF/m²
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>
+                    📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
+                    {ad.sector ? ' · ' + ad.sector : ''}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Map Mapbox */}
+          <div className={`immo-map-panel ${showMap ? 'show' : ''}`}
+            style={{flex:1, position:'relative', background:'#e8ede9'}}>
+            <div ref={mapRef} style={{width:'100%', height:'100%'}} />
+
+            {/* Popup annonce sélectionnée */}
+            {selectedImmoAd && (
+              <div style={{position:'absolute', bottom:'20px', left:'50%', transform:'translateX(-50%)', background:'white', borderRadius:'12px', padding:'14px 16px', boxShadow:'0 8px 32px rgba(0,0,0,0.15)', display:'flex', gap:'12px', alignItems:'center', minWidth:'300px', maxWidth:'400px', border:'1px solid #e8ede9', zIndex:10}}>
+                <div style={{width:'60px', height:'60px', borderRadius:'8px', overflow:'hidden', flexShrink:0}}>
+                  {selectedImmoAd.images?.[0] ? (
+                    <img src={selectedImmoAd.images[0]} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                  ) : (
+                    <div style={{width:'100%', height:'100%', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem'}}>🏡</div>
+                  )}
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'#0f5233', marginBottom:'2px'}}>
+                    {Number(selectedImmoAd.price).toLocaleString()} RWF
+                  </div>
+                  <div style={{fontSize:'0.8rem', color:'#111a14', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:'3px'}}>
+                    {selectedImmoAd.title}
+                  </div>
+                  <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>📍 {selectedImmoAd.province}</div>
+                </div>
+                <div style={{display:'flex', flexDirection:'column', gap:'6px', flexShrink:0}}>
+                  <button onClick={() => window.location.href='/annonce/' + selectedImmoAd.id}
+                    style={{padding:'7px 12px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.75rem', color:'white', cursor:'pointer', whiteSpace:'nowrap'}}>
+                    Voir →
+                  </button>
+                  <button onClick={() => setSelectedImmoAd(null)}
+                    style={{padding:'4px', background:'transparent', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:'0.8rem'}}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loader map */}
+            {!MAPBOX_TOKEN && (
+              <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'12px', color:'#6b7c6e'}}>
+                <div style={{fontSize:'3rem'}}>🗺️</div>
+                <p style={{fontFamily:'Syne,sans-serif', fontWeight:700}}>Carte non disponible</p>
+                <p style={{fontSize:'0.82rem'}}>Token Mapbox manquant</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODE NORMAL — Grid annonces ── */}
+      {!search.startsWith('@') && activeSection === 'main' && !isImmoMode && (
         <div style={{padding:'24px 5%', maxWidth:'1300px', margin:'0 auto'}}>
           <div style={{background:'white', borderRadius:'12px', padding:'12px 16px', marginBottom:'20px', border:'1px solid #e8ede9'}}>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', flexWrap:'wrap'}}>
@@ -388,47 +710,28 @@ export default function Home() {
             </div>
 
             {showFilters && (
-              <div className="filters-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px', marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f0f4f1'}}>
                 <div>
-                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Categorie</label>
-                  <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setFilterSubcat('') }} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
-                    <option value="">Toutes</option>
-                    <optgroup label="🏡 Immobilier">
-                      <option value="immo">Tout l immobilier</option>
-                      <option value="immo-vente">↳ Vente</option>
-                      <option value="immo-location">↳ Location</option>
-                      <option value="immo-terrain">↳ Terrain</option>
-                    </optgroup>
-                    {MAIN_CATEGORIES.filter(c => c.value !== 'immo').map(c => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* ✅ Sous-catégorie dans les filtres avancés */}
-                <div>
-                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Sous-categorie</label>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Sous-categorie</label>
                   <select value={filterSubcat} onChange={e => setFilterSubcat(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}} disabled={subcats.length === 0}>
-                    <option value="">{subcats.length === 0 ? 'Choisir une catégorie d\'abord' : 'Toutes'}</option>
+                    <option value="">{subcats.length === 0 ? 'Choisir une catégorie' : 'Toutes'}</option>
                     {subcats.filter(s => s.value !== '').map(s => (
                       <option key={s.value} value={s.value}>{s.label}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
-                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Ville</label>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Ville</label>
                   <select value={filterVille} onChange={e => setFilterVille(e.target.value)} style={{width:'100%', padding:'8px 10px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.82rem', outline:'none', background:'white', cursor:'pointer'}}>
                     <option value="">Toutes</option>
                     {villes.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
-
                 <div>
-                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase', letterSpacing:'0.04em'}}>Prix (RWF)</label>
+                  <label style={{display:'block', fontSize:'0.7rem', fontWeight:600, color:'#6b7c6e', marginBottom:'5px', textTransform:'uppercase'}}>Prix (RWF)</label>
                   <div style={{display:'flex', gap:'6px'}}>
-                    <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'50%', padding:'8px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
-                    <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'50%', padding:'8px 8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
+                    <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} style={{width:'50%', padding:'8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
+                    <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} style={{width:'50%', padding:'8px', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontSize:'0.78rem', outline:'none', background:'white'}}/>
                   </div>
                 </div>
               </div>
@@ -486,6 +789,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── JOBS ── */}
       {activeSection === 'jobs' && (
         <div style={{padding:'32px 5%', maxWidth:'1300px', margin:'0 auto'}}>
           <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.4rem', marginBottom:'20px', color:'#111a14'}}>💼 Offres d emploi</h2>
@@ -510,19 +814,22 @@ export default function Home() {
         </div>
       )}
 
-      <footer style={{background:'#0f5233', color:'rgba(255,255,255,0.6)', padding:'36px 5%', marginTop:'40px'}}>
-        <div style={{maxWidth:'1300px', margin:'0 auto', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'16px', alignItems:'center'}}>
-          <div>
-            <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.15rem', color:'white', marginBottom:'4px'}}>Soko<span style={{color:'#f5a623'}}>Deal</span></div>
-            <p style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.4)', maxWidth:'240px', lineHeight:1.6}}>La premiere plateforme d annonces d Afrique.</p>
+      {/* ── FOOTER ── */}
+      {!isImmoMode && (
+        <footer style={{background:'#0f5233', color:'rgba(255,255,255,0.6)', padding:'36px 5%', marginTop:'40px'}}>
+          <div style={{maxWidth:'1300px', margin:'0 auto', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'16px', alignItems:'center'}}>
+            <div>
+              <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.15rem', color:'white', marginBottom:'4px'}}>Soko<span style={{color:'#f5a623'}}>Deal</span></div>
+              <p style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.4)', maxWidth:'240px', lineHeight:1.6}}>La premiere plateforme d annonces d Afrique.</p>
+            </div>
+            <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
+              <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
+              <a href="/cgu" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>CGU</a>
+              <span style={{color:'rgba(255,255,255,0.4)'}}>2025 SokoDeal · Made in Africa</span>
+            </div>
           </div>
-          <div style={{display:'flex', gap:'20px', fontSize:'0.8rem', alignItems:'center'}}>
-            <a href="/admin" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>Admin</a>
-            <a href="/cgu" style={{color:'rgba(255,255,255,0.3)', textDecoration:'none'}}>CGU</a>
-            <span style={{color:'rgba(255,255,255,0.4)'}}>2025 SokoDeal · Made in Africa</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </>
   )
 }
