@@ -129,9 +129,12 @@ export default function PublicProfile() {
     if (reviewsData) setReviews(reviewsData)
 
     setAlreadyReviewed(true)
-    setShowReviewForm(false)
-    setReviewForm({ rating: 5, comment: '' })
-    setReviewMsg('')
+setShowReviewForm(false)
+setReviewForm({ rating: 5, comment: '' })
+setReviewMsg('')
+// ✅ Mettre à jour le profil avec la nouvelle note
+const newAvg = reviewsData ? (reviewsData.reduce((sum: number, r: any) => sum + r.rating, 0) / reviewsData.length).toFixed(1) : null
+setProfile({ ...profile, avg_rating: newAvg })
   }
 
   const avgRating = reviews.length > 0
@@ -253,9 +256,12 @@ export default function PublicProfile() {
 
             <div style={{display:'flex', gap:'8px', flexShrink:0, flexWrap:'wrap'}}>
               {isOwner ? (
-                <button onClick={() => setEditMode(!editMode)} style={{padding:'8px 16px', background: editMode ? '#fff1f0' : '#f5f7f5', border:'1px solid ' + (editMode ? '#ffd6d6' : '#e8ede9'), borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', color: editMode ? '#c0392b' : '#111a14', cursor:'pointer'}}>
-                  {editMode ? '✕ Annuler' : '✏️ Modifier'}
-                </button>
+                <button onClick={() => {
+  if (!currentUser) { window.location.href = '/auth?mode=login'; return }
+  window.location.href = '/messages?user=' + profile.id
+}} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>
+  💬 Contacter
+</button>
               ) : (
                 <>
                   <button onClick={() => window.location.href='/messages'} style={{padding:'8px 16px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'white', cursor:'pointer'}}>

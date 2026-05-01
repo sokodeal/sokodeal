@@ -16,6 +16,7 @@ export function useUnreadCount() {
   useEffect(() => {
     let userId: string | null = null
     let channel: any = null
+    let broadcastChannel: any = null
     let interval: any = null
 
     const init = async () => {
@@ -35,19 +36,28 @@ export function useUnreadCount() {
         setUnreadCount(c => c + 1)
       }).subscribe()
 
-      // Interval 3s pour sync apres lecture
+      // ✅ Écouter quand l'utilisateur ouvre une conversation
+      broadcastChannel = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
+      broadcastChannel.on('broadcast', { event: 'messages_read' }, () => {
+        // Reset immédiat puis recharge depuis la DB
+        setUnreadCount(0)
+        if (userId) setTimeout(() => loadCount(userId!), 500)
+      }).subscribe()
+
+      // ✅ Interval 10s au lieu de 3s — moins agressif
       interval = setInterval(() => {
         if (userId) loadCount(userId)
-      }, 3000)
+      }, 10000)
     }
 
     init()
 
     return () => {
       if (channel) supabase.removeChannel(channel)
+      if (broadcastChannel) supabase.removeChannel(broadcastChannel)
       if (interval) clearInterval(interval)
     }
   }, [loadCount])
 
-  return { unreadCount }
+  return { unreadCount, resetCount: () => setUnreadCount(0) }
 }

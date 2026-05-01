@@ -12,7 +12,6 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<any>(null)
-  // ✅ FIX : on garde en mémoire les convs déjà lues
   const readConvsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -20,7 +19,39 @@ export default function MessagesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/auth?mode=login'; return }
       setUser(user)
-      await loadConversations(user)
+
+      const convList = await loadConversations(user) || []
+
+      // ✅ Ouvrir direct une conversation si ?user= dans l'URL
+      const params = new URLSearchParams(window.location.search)
+      const targetUserId = params.get('user')
+      if (targetUserId) {
+        const existingConv = convList.find((c: any) => c.other_id === targetUserId)
+        if (existingConv) {
+          await openConversation(existingConv)
+        } else {
+          // Nouvelle conversation sans historique
+          const { data: targetUser } = await supabase
+            .from('users')
+            .select('id, username, full_name, email')
+            .eq('id', targetUserId)
+            .single()
+          if (targetUser) {
+            setActiveConv({
+              other_id: targetUser.id,
+              other_email: targetUser.email || '',
+              other_user: targetUser,
+              ad_id: null,
+              ad: null,
+              unread: 0,
+              last_message: '',
+              last_date: new Date().toISOString(),
+            })
+            setMessages([])
+          }
+        }
+      }
+
       setLoading(false)
     }
     init()
@@ -56,7 +87,7 @@ export default function MessagesPage() {
       .or(`sender_id.eq.${u.id},receiver_id.eq.${u.id}`)
       .order('created_at', { ascending: false })
 
-    if (!data) return
+    if (!data) return []
 
     const convMap = new Map()
     for (const msg of data) {
@@ -102,49 +133,61 @@ export default function MessagesPage() {
       convList.forEach((c: any) => { c.ad = adsMap.get(c.ad_id) || null })
     }
 
-    // ✅ FIX : appliquer les convs déjà lues pour ne pas remettre le badge
+    // ✅ FIX : appliquer les convs déjà lues
     convList.forEach((c: any) => {
       const key = `${c.ad_id}__${c.other_id}`
-      if (readConvsRef.current.has(key)) {
-        c.unread = 0
-      }
+      if (readConvsRef.current.has(key)) c.unread = 0
     })
 
     setConversations(convList)
+    return convList
   }
 
   const openConversation = async (conv: any) => {
     setActiveConv(conv)
 
-    // ✅ FIX : mémoriser cette conv comme lue immédiatement
     const key = `${conv.ad_id}__${conv.other_id}`
     readConvsRef.current.add(key)
 
     // Marquer comme lu en base
-    await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('receiver_id', user.id)
-      .eq('ad_id', conv.ad_id)
-      .eq('sender_id', conv.other_id)
+    if (conv.ad_id) {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('receiver_id', user?.id)
+        .eq('ad_id', conv.ad_id)
+        .eq('sender_id', conv.other_id)
+    } else {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('receiver_id', user?.id)
+        .eq('sender_id', conv.other_id)
+    }
 
     // Charger les messages
-    const { data: updatedData } = await supabase
+    let query = supabase
       .from('messages')
       .select('*')
-      .eq('ad_id', conv.ad_id)
       .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${conv.other_id}),` +
-        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user.id})`
+        `and(sender_id.eq.${user?.id},receiver_id.eq.${conv.other_id}),` +
+        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user?.id})`
       )
       .order('created_at', { ascending: true })
 
+    if (conv.ad_id) query = query.eq('ad_id', conv.ad_id)
+
+    const { data: updatedData } = await query
     setMessages(updatedData || [])
 
-    // ✅ FIX : reset badge dans le state local immédiatement
+    // ✅ Reset badge local
     setConversations(prev => prev.map(c =>
       c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
     ))
+
+    // ✅ Broadcast pour le hook useUnreadCount
+    const broadcastCh = supabase.channel('unread-realtime-' + user?.id?.slice(0, 8))
+    broadcastCh.send({ type: 'broadcast', event: 'messages_read', payload: {} })
   }
 
   const markAsRead = async (userId: string) => {
@@ -161,11 +204,11 @@ export default function MessagesPage() {
     if (!newMessage.trim() || !activeConv || !user) return
     setSending(true)
     const msg = {
-      ad_id: activeConv.ad_id,
+      ad_id: activeConv.ad_id || null,
       sender_id: user.id,
       receiver_id: activeConv.other_id,
       sender_email: user.email,
-      receiver_email: activeConv.other_email,
+      receiver_email: activeConv.other_email || '',
       content: newMessage.trim(),
       is_read: false,
     }
@@ -173,7 +216,6 @@ export default function MessagesPage() {
     if (data) setMessages(prev => [...prev, data])
     setNewMessage('')
     setSending(false)
-    // ✅ FIX : recharger sans perdre les badges déjà lus
     await loadConversations(user)
   }
 
@@ -201,7 +243,7 @@ export default function MessagesPage() {
   const getDisplayName = (conv: any) => {
     if (conv.other_user?.username) return '@' + conv.other_user.username
     if (conv.other_user?.full_name) return conv.other_user.full_name
-    return conv.other_email
+    return conv.other_email || 'Utilisateur'
   }
 
   if (loading) return (
@@ -246,7 +288,7 @@ export default function MessagesPage() {
                 </div>
               ) : conversations.map((conv, i) => (
                 <div key={i} className="conv-item" onClick={() => openConversation(conv)}
-                  style={{ padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f4f1', background: activeConv?.ad_id === conv.ad_id && activeConv?.other_id === conv.other_id ? '#f0f4f1' : 'white', transition: 'background 0.15s' }}>
+                  style={{ padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid #f0f4f1', background: activeConv?.other_id === conv.other_id && activeConv?.ad_id === conv.ad_id ? '#f0f4f1' : 'white', transition: 'background 0.15s' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#1a7a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 800, color: 'white', fontFamily: 'Syne,sans-serif', flexShrink: 0 }}>
                       {(conv.other_user?.username || conv.other_user?.full_name || conv.other_email || 'U')[0].toUpperCase()}
@@ -260,7 +302,7 @@ export default function MessagesPage() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.73rem', color: '#6b7c6e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-                          📦 {conv.ad?.title || 'Annonce supprimée'}
+                          {conv.ad?.title ? '📦 ' + conv.ad.title : '💬 Message direct'}
                         </span>
                         {conv.unread > 0 && (
                           <span style={{ background: '#e63946', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 800, flexShrink: 0 }}>
@@ -293,7 +335,7 @@ export default function MessagesPage() {
                       {getDisplayName(activeConv)}
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#6b7c6e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      📦 {activeConv.ad?.title || 'Annonce supprimée'}
+                      {activeConv.ad?.title ? '📦 ' + activeConv.ad.title : '💬 Message direct'}
                     </div>
                   </div>
                   {activeConv.ad_id && (
@@ -304,6 +346,11 @@ export default function MessagesPage() {
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {messages.length === 0 && (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.82rem', marginTop: '40px' }}>
+                      Commencez la conversation !
+                    </div>
+                  )}
                   {messages.map((msg, i) => {
                     const isMe = msg.sender_id === user.id
                     const parts = extractLink(msg.content)
