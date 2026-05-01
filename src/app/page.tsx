@@ -8,7 +8,7 @@ import { SUBCATEGORIES, MAIN_CATEGORIES } from '@/lib/categories'
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
 // Coordonnées approximatives des villes rwandaises
-const VILLE_COORDS: Record<string, [number, number]> = {
+const VILLE_COORDS: { [key: string]: [number, number] } = {
   'Kigali': [30.0619, -1.9441],
   'Butare': [29.7392, -2.5967],
   'Musanze': [29.6349, -1.4994],
