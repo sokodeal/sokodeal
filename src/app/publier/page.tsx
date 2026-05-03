@@ -137,7 +137,7 @@ export default function PublierPage() {
       setLoading(false)
       savePublishDraft()
       setMsg('🔒 Vous devez vérifier votre identité avant de publier une annonce.')
-      setTimeout(() => window.location.href = '/verification?from=publier', 2000)
+      setTimeout(() => window.location.href = '/verification-identite', 2000)
       return
     }
 
