@@ -4,6 +4,40 @@ import { supabase } from '@/lib/supabase'
 
 const PUBLISH_DRAFT_KEY = 'sokodeal:publish-draft'
 
+const PASSWORD_RULES = [
+  { label: '8 caracteres minimum', test: (value: string) => value.length >= 8 },
+  { label: '1 majuscule', test: (value: string) => /[A-Z]/.test(value) },
+  { label: '1 minuscule', test: (value: string) => /[a-z]/.test(value) },
+  { label: '1 chiffre', test: (value: string) => /\d/.test(value) },
+  { label: '1 symbole', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+]
+
+const validatePassword = (value: string) => {
+  const missingRule = PASSWORD_RULES.find(rule => !rule.test(value))
+  return missingRule ? 'Mot de passe incomplet : ajoutez ' + missingRule.label.toLowerCase() + '.' : ''
+}
+
+const readableAuthError = (message: string) => {
+  const lower = message.toLowerCase()
+  const waitMatch = message.match(/(\d+)\s*seconds?/i)
+
+  if (lower.includes('security purposes') || lower.includes('rate limit')) {
+    return waitMatch
+      ? 'Trop de tentatives avec cet email. Attendez ' + waitMatch[1] + ' secondes puis reessayez.'
+      : 'Trop de tentatives avec cet email. Attendez un peu puis reessayez.'
+  }
+
+  if (lower.includes('already registered') || lower.includes('already exists')) {
+    return 'Un compte existe peut-etre deja avec cet email. Essayez de vous connecter.'
+  }
+
+  if (lower.includes('password')) {
+    return 'Le mot de passe ne respecte pas les regles demandees.'
+  }
+
+  return message || 'Impossible de creer le compte. Reessayez.'
+}
+
 export default function VerificationPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -18,6 +52,7 @@ export default function VerificationPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordTouched, setPasswordTouched] = useState(false)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
 
@@ -79,40 +114,21 @@ export default function VerificationPage() {
   // ── Étape 1 : créer le compte ──
   const handleAccount = async () => {
     setError('')
+    const cleanEmail = email.trim().toLowerCase()
+    const cleanUsername = username.trim().toLowerCase()
+    const passwordError = validatePassword(password)
+
     if (!fullName.trim()) return setError('Le nom complet est requis.')
-    if (!email.includes('@')) return setError('Email invalide.')
-    if (!username || username.length < 3) return setError('Username : 3 caractères minimum.')
-    if (!/^[a-z0-9_]+$/.test(username)) return setError('Username : lettres, chiffres et _ uniquement.')
-    if (usernameAvailable === false) return setError('Ce username est déjà pris.')
-    if (password.length < 8) return setError('Mot de passe : 8 caractères minimum.')
+    if (!cleanEmail.includes('@')) return setError('Email invalide.')
+    if (!cleanUsername || cleanUsername.length < 3) return setError('Username : 3 caracteres minimum.')
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) return setError('Username : lettres, chiffres et _ uniquement.')
+    if (checkingUsername) return setError('Verification du username en cours. Patientez une seconde.')
+    if (usernameAvailable !== true) return setError('Attendez la verification du username.')
+    if (passwordError) { setPasswordTouched(true); return setError(passwordError) }
 
-    setUploading(true)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName } }
-    })
-    if (authError) { setError(authError.message); setUploading(false); return }
-
-    const userId = authData.user?.id
-    if (!userId) { setError('Erreur création compte.'); setUploading(false); return }
-
-    // Créer le profil avec username
-    const { error: profileError } = await supabase.from('users').upsert({
-      id: userId,
-      email,
-      full_name: fullName,
-      username: username.toLowerCase(),
-      is_verified: false,
-    })
-    if (profileError) { setError(profileError.message); setUploading(false); return }
-
-    setUser(authData.user)
-    setUploading(false)
     setStep('identity')
   }
 
-  // ── Sélection photo ──
   const handleFileChange = (e: any) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -138,35 +154,49 @@ export default function VerificationPage() {
 
     setStep('uploading')
     try {
-      const currentUser = user || (await supabase.auth.getUser()).data.user
-      if (!currentUser) throw new Error('Non connecté.')
+      const cleanEmail = email.trim().toLowerCase()
+      const cleanUsername = username.trim().toLowerCase()
+      const passwordError = validatePassword(password)
 
-      // Upload photo CNI
-      const ext = docFile!.name.split('.').pop()
-      const filePath = `${currentUser.id}/id-card.${ext}`
+      if (!docFile) throw new Error('Veuillez uploader une photo de votre carte.')
+      if (passwordError) throw new Error(passwordError)
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: { data: { full_name: fullName.trim() } }
+      })
+      if (authError) throw new Error(readableAuthError(authError.message))
+
+      const userId = authData.user?.id
+      if (!userId) throw new Error('Erreur creation compte. Reessayez.')
+
+      const ext = docFile.name.split('.').pop()
+      const filePath = userId + '/id-card.' + ext
       const { error: uploadError } = await supabase.storage
         .from('id-documents')
-        .upload(filePath, docFile!, { upsert: true })
+        .upload(filePath, docFile, { upsert: true })
       if (uploadError) throw uploadError
 
-      // Mettre à jour le profil
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          national_id: nationalId,
-          id_document_url: filePath,
-          id_verification_status: 'verified',
-          is_verified: true,
-        })
-        .eq('id', currentUser.id)
-      if (updateError) throw updateError
+      const { error: profileError } = await supabase.from('users').upsert({
+        id: userId,
+        email: cleanEmail,
+        full_name: fullName.trim(),
+        username: cleanUsername,
+        national_id: nationalId,
+        id_document_url: filePath,
+        id_verification_status: 'verified',
+        is_verified: true,
+      })
+      if (profileError) throw profileError
 
+      setUser(authData.user)
       setStep('success')
       if (window.localStorage.getItem(PUBLISH_DRAFT_KEY)) {
         window.location.href = '/publier?verified=1'
       }
     } catch (err: any) {
-      setError(err.message || 'Erreur. Réessayez.')
+      setError(err.message || 'Erreur. Reessayez.')
       setStep('cgu')
     }
   }
@@ -179,6 +209,15 @@ export default function VerificationPage() {
     outline: 'none', background: '#fafafa', color: '#222', boxSizing: 'border-box',
     marginBottom: '14px', display: 'block'
   }
+
+  const passwordError = validatePassword(password)
+  const showPasswordRules = passwordTouched || password.length > 0
+  const accountFormReady = !!fullName.trim()
+    && email.trim().includes('@')
+    && username.trim().length >= 3
+    && usernameAvailable === true
+    && !checkingUsername
+    && !passwordError
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7f5' }}>
@@ -261,7 +300,8 @@ export default function VerificationPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="8 caractères minimum"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => { setPassword(e.target.value); setPasswordTouched(true) }}
+                  onBlur={() => setPasswordTouched(true)}
                   style={{ ...inp, marginBottom: 0, paddingRight: '40px' }}
                 />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
@@ -270,9 +310,25 @@ export default function VerificationPage() {
                 </button>
               </div>
 
+                            {showPasswordRules && (
+                <div style={{background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'10px', padding:'10px 12px', marginTop:'-6px', marginBottom:'14px'}}>
+                  <p style={{fontSize:'0.72rem', color:'#6b7c6e', fontWeight:700, marginBottom:'7px', textTransform:'uppercase'}}>Mot de passe requis</p>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}}>
+                    {PASSWORD_RULES.map(rule => {
+                      const ok = rule.test(password)
+                      return (
+                        <span key={rule.label} style={{fontSize:'0.74rem', color: ok ? '#1a7a4a' : '#6b7c6e', fontWeight: ok ? 700 : 500}}>
+                          {ok ? 'OK ' : '- '}{rule.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {error && <div style={{ background: '#fff1f0', border: '1px solid #ffd6d6', color: '#c0392b', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '14px' }}>⚠️ {error}</div>}
 
-              <button onClick={handleAccount} disabled={uploading} style={{ width: '100%', padding: '13px', background: uploading ? '#ccc' : '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: uploading ? 'not-allowed' : 'pointer', marginBottom: '14px' }}>
+              <button onClick={handleAccount} disabled={uploading || !accountFormReady} style={{ width: '100%', padding: '13px', background: uploading || !accountFormReady ? '#ccc' : '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: uploading || !accountFormReady ? 'not-allowed' : 'pointer', marginBottom: '14px' }}>
                 {uploading ? '⏳ Création...' : 'Continuer →'}
               </button>
 

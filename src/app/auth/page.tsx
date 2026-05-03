@@ -10,6 +10,11 @@ export default function AuthPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (window.location.search.includes('mode=signup')) {
+      window.location.href = '/verification'
+      return
+    }
+
     // Si déjà connecté → rediriger
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) window.location.href = '/'
