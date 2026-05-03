@@ -35,6 +35,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [search, setSearch] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [localHistory, setLocalHistory] = useState<string[]>([])
   const [filterCat, setFilterCat] = useState('')
   const [filterSubcat, setFilterSubcat] = useState('')
   const [filterVille, setFilterVille] = useState('')
@@ -108,6 +110,11 @@ export default function Home() {
       setUser(user)
     }
     getUser()
+
+    const stored = localStorage.getItem('sokodeal:search-history')
+    if (stored) {
+      try { setLocalHistory(JSON.parse(stored).slice(0, 10)) } catch {}
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
@@ -284,7 +291,19 @@ export default function Home() {
     setFiltered(result)
 
     const timer = setTimeout(() => {
-      if (search.trim() || filterCat || filterVille) saveToHistory(search.trim(), filterCat, filterVille)
+      const cleanSearch = search.trim()
+
+      if (cleanSearch && cleanSearch.length > 2) {
+        try {
+          const stored = localStorage.getItem('sokodeal:search-history')
+          const existing: string[] = stored ? JSON.parse(stored) : []
+          const updated = [cleanSearch, ...existing.filter(s => s !== cleanSearch)].slice(0, 10)
+          localStorage.setItem('sokodeal:search-history', JSON.stringify(updated))
+          setLocalHistory(updated)
+        } catch {}
+      }
+
+      if (cleanSearch || filterCat || filterVille) saveToHistory(cleanSearch, filterCat, filterVille)
     }, 1500)
     return () => clearTimeout(timer)
   }, [search, filterCat, filterSubcat, filterVille, filterPriceMin, filterPriceMax, filterChambres, filterType, sortBy, ads])
@@ -357,21 +376,61 @@ export default function Home() {
       )}
 
       {/* ── HEADER ── */}
-      <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9'}}>
+      <header style={{background:'white', position:'sticky', top:0, zIndex:100, borderBottom:'1px solid #e8ede9', paddingTop:'env(safe-area-inset-top)'}}>
         <div className="header-inner" style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 5%', height:'62px', gap:'14px', maxWidth:'1300px', margin:'0 auto'}}>
           <a href="/" style={{display:'flex', alignItems:'center', gap:'8px', textDecoration:'none', flexShrink:0}}>
             <div style={{width:'34px', height:'34px', background:'#f5a623', borderRadius:'9px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'17px'}}>🦁</div>
             <span style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.25rem', color:'#111a14'}}>Soko<span style={{color:'#1a7a4a'}}>Deal</span></span>
           </a>
 
-          <div className="search-bar" style={{flex:1, maxWidth:'480px'}}>
+          <div className="search-bar" style={{flex:1, maxWidth:'480px', position:'relative'}}>
             <div style={{display:'flex', background:'#f5f7f5', borderRadius:'9px', overflow:'hidden', border:'1px solid #e8ede9'}}>
               <input type="text" placeholder="Rechercher... ou @username" value={search}
                 onChange={e => { setSearch(e.target.value); setActiveSection('main') }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 style={{flex:1, padding:'9px 14px', border:'none', outline:'none', fontFamily:'DM Sans,sans-serif', fontSize:'0.9rem', background:'transparent', color:'#111a14'}}
               />
               <button style={{background:'#f5a623', border:'none', cursor:'pointer', padding:'9px 16px', fontSize:'1rem', color:'#111a14'}}>🔍</button>
             </div>
+            {showSuggestions && localHistory.length > 0 && !search && (
+              <div style={{position:'absolute', top:'44px', left:0, right:0, background:'white', borderRadius:'12px', border:'1px solid #e8ede9', boxShadow:'0 8px 24px rgba(0,0,0,0.10)', zIndex:500, overflow:'hidden'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderBottom:'1px solid #f0f4f1'}}>
+                  <span style={{fontSize:'0.72rem', fontWeight:700, color:'#6b7c6e', textTransform:'uppercase'}}>Recherches recentes</span>
+                  <button
+                    onMouseDown={() => {
+                      localStorage.removeItem('sokodeal:search-history')
+                      setLocalHistory([])
+                      setShowSuggestions(false)
+                    }}
+                    style={{fontSize:'0.72rem', color:'#c0392b', background:'none', border:'none', cursor:'pointer', fontWeight:600}}
+                  >
+                    Tout effacer
+                  </button>
+                </div>
+                {localHistory.map((item, i) => (
+                  <div key={`${item}-${i}`} style={{display:'flex', alignItems:'center', padding:'10px 14px', borderBottom: i < localHistory.length - 1 ? '1px solid #f0f4f1' : 'none'}}>
+                    <span style={{fontSize:'0.85rem', marginRight:'8px'}}>🕐</span>
+                    <span
+                      onMouseDown={() => { setSearch(item); setShowSuggestions(false); setActiveSection('main') }}
+                      style={{flex:1, fontSize:'0.85rem', color:'#111a14', cursor:'pointer', fontFamily:'DM Sans,sans-serif'}}
+                    >
+                      {item}
+                    </span>
+                    <button
+                      onMouseDown={() => {
+                        const updated = localHistory.filter((_, j) => j !== i)
+                        setLocalHistory(updated)
+                        localStorage.setItem('sokodeal:search-history', JSON.stringify(updated))
+                      }}
+                      style={{background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'1rem', padding:'0 4px'}}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>

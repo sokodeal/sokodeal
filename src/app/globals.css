@@ -23,3 +23,12 @@ html, body {
   .hide-mobile { display: none !important; }
   .full-mobile { width: 100% !important; }
 }
+
+/* Safe area iPhone */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+}

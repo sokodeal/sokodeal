@@ -48,7 +48,7 @@ export default function Header() {
           .deposer-text { display: none !important; }
         }
       `}</style>
-      <header style={{ background: 'white', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #e8ede9' }}>
+      <header style={{ background: 'white', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #e8ede9', paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4%', height: '58px', gap: '10px', maxWidth: '1300px', margin: '0 auto' }}>
 
           {/* LOGO */}

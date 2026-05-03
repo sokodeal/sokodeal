@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
         <meta name="theme-color" content="#0f5233"/>
         <meta name="mobile-web-app-capable" content="yes"/>
         <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
       </head>
-      <body style={{margin:0, padding:0, background:'#f5f7f5', overflowX:'hidden', maxWidth:'100vw'}}>
+      <body style={{margin:0, padding:0, paddingBottom:'env(safe-area-inset-bottom)', background:'#f5f7f5', overflowX:'hidden', maxWidth:'100vw'}}>
         {children}
         
         {/* On a déplacé le script ici avec le bon outil de Next.js */}
