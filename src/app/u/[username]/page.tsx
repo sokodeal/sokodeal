@@ -6,6 +6,7 @@ import FavoriteButton from '@/components/FavoriteButton'
 import { supabase } from '@/lib/supabase'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 import { generateSlug } from '@/lib/slug'
+import ImageCropModal from '@/components/ImageCropModal'
 
 const catLabel: Record<string, string> = {
   'immo-vente': 'Immo',
@@ -47,6 +48,7 @@ export default function PublicProfile() {
   const [bannerPosition, setBannerPosition] = useState('50% 50%')
   const [savedBannerPosition, setSavedBannerPosition] = useState('50% 50%')
   const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null)
+  const [bannerCropFile, setBannerCropFile] = useState<File | null>(null)
   const [pendingBannerUrl, setPendingBannerUrl] = useState('')
   const [isDraggingBanner, setIsDraggingBanner] = useState(false)
   const [editMsg, setEditMsg] = useState('')
@@ -159,13 +161,18 @@ export default function PublicProfile() {
   const handleBannerFileSelect = (e: any) => {
     const file = e.target.files?.[0]
     if (!file || !currentUser) return
+    e.target.value = ''
+    setBannerCropFile(file)
+  }
+
+  const handleBannerCropConfirm = (croppedFile: File) => {
     if (pendingBannerUrl) URL.revokeObjectURL(pendingBannerUrl)
 
-    setPendingBannerFile(file)
-    setPendingBannerUrl(URL.createObjectURL(file))
+    setPendingBannerFile(croppedFile)
+    setPendingBannerUrl(URL.createObjectURL(croppedFile))
     setBannerPosition('50% 50%')
     setBannerMsg('')
-    e.target.value = ''
+    setBannerCropFile(null)
   }
 
   const confirmBannerUpload = async () => {
@@ -407,6 +414,14 @@ export default function PublicProfile() {
 
   return (
     <div className="profile-page">
+      {bannerCropFile && (
+        <ImageCropModal
+          file={bannerCropFile}
+          aspect={3 / 1}
+          onConfirm={handleBannerCropConfirm}
+          onCancel={() => setBannerCropFile(null)}
+        />
+      )}
       <style>{`
         .profile-page {
           min-height: 100vh;

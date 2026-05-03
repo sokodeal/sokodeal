@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SUBCATEGORIES } from '@/lib/categories'
 import { LAUNCH_CITIES, LAUNCH_MAIN_CATEGORIES, LAUNCH_SUBCATEGORIES } from '@/lib/market-config'
+import ImageCropModal from '@/components/ImageCropModal'
 
 const INDICATIFS = [
   { code: '+250', flag: '🇷🇼', pays: 'Rwanda' },
@@ -24,6 +25,9 @@ export default function PublierPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [photos, setPhotos] = useState<File[]>([])
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropIndex, setCropIndex] = useState(0)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [draftReady, setDraftReady] = useState(false)
   const skipNextDraftSaveRef = useRef(false)
   const [form, setForm] = useState({
@@ -105,15 +109,43 @@ export default function PublierPage() {
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || [])
-    const combined = [...photos, ...newFiles]
-    const limited = combined.slice(0, MAX_PHOTOS)
-    setPhotos(limited)
+    if (newFiles.length === 0) return
     e.target.value = ''
-    if (combined.length > MAX_PHOTOS) {
-      setMsg('Vous pouvez ajouter maximum 5 photos. Les 5 premieres ont ete gardees.')
+
+    const remaining = MAX_PHOTOS - photos.length
+    if (remaining <= 0) {
+      setMsg('Vous avez deja 5 photos.')
       return
     }
-    setMsg('')
+
+    const toProcess = newFiles.slice(0, remaining)
+    if (newFiles.length > remaining) {
+      setMsg('Vous pouvez ajouter maximum 5 photos. Les photos en plus ont ete ignorees.')
+    } else {
+      setMsg('')
+    }
+    setPendingFiles(toProcess)
+    setCropIndex(0)
+    setCropFile(toProcess[0])
+  }
+
+  const handleCropConfirm = (croppedFile: File) => {
+    setPhotos(prev => [...prev, croppedFile].slice(0, MAX_PHOTOS))
+    const nextIndex = cropIndex + 1
+    if (nextIndex < pendingFiles.length) {
+      setCropIndex(nextIndex)
+      setCropFile(pendingFiles[nextIndex])
+    } else {
+      setCropFile(null)
+      setPendingFiles([])
+      setCropIndex(0)
+    }
+  }
+
+  const handleCropCancel = () => {
+    setCropFile(null)
+    setPendingFiles([])
+    setCropIndex(0)
   }
 
   const handleSubmit = async () => {
@@ -257,6 +289,14 @@ export default function PublierPage() {
 
   return (
     <div style={{minHeight:'100vh', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', padding:'16px'}}>
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          aspect={4 / 3}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
       <div style={{background:'white', borderRadius:'16px', padding:'28px', maxWidth:'540px', width:'100%', border:'1px solid #e8ede9', boxShadow:'0 4px 24px rgba(0,0,0,0.06)'}}>
 
         <div style={{textAlign:'center', marginBottom:'20px'}}>
