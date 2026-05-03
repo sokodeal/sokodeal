@@ -292,6 +292,7 @@ export default function PublierPage() {
       {cropFile && (
         <ImageCropModal
           file={cropFile}
+          aspect={4 / 3}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
         />

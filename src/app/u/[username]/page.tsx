@@ -361,6 +361,7 @@ export default function PublicProfile() {
       {bannerCropFile && (
         <ImageCropModal
           file={bannerCropFile}
+          aspect={3 / 1}
           onConfirm={handleBannerCropConfirm}
           onCancel={() => setBannerCropFile(null)}
         />
