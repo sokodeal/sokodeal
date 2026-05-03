@@ -463,23 +463,18 @@ export default function AnnonceDetail() {
                   Tel {ad.phone}
                 </a>
               ) : (
-                <div style={{position:'relative', marginTop:'8px'}}>
-                  <div style={{filter:'blur(5px)', userSelect:'none', padding:'11px', background:'#f5f7f5', borderRadius:'9px', border:'1px solid #e8ede9', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', textAlign:'center'}}>
-                    Tel +250 7XX XXX XXX
-                  </div>
-                  <button
-                    onClick={() => {
-                      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
-                        url: window.location.pathname,
-                        state: { message }
-                      }))
-                      window.location.href = '/auth?mode=login'
-                    }}
-                    style={{position:'absolute', inset:0, width:'100%', background:'rgba(255,255,255,0.85)', border:'1px solid #e8ede9', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.78rem', color:'#1a7a4a'}}
-                  >
-                    Se connecter pour voir
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+                      url: window.location.pathname,
+                      state: { message }
+                    }))
+                    window.location.href = '/auth?mode=login'
+                  }}
+                  style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#111a14', border:'1px solid #e8ede9', cursor:'pointer', marginTop:'8px', boxSizing:'border-box'}}
+                >
+                  📞 Téléphone
+                </button>
               )
             )}
             {!ad.hide_phone && (ad.whatsapp || ad.phone) && (
@@ -499,7 +494,7 @@ export default function AnnonceDetail() {
                   }}
                   style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'white', border:'none', cursor:'pointer', marginTop:'8px', boxSizing:'border-box', opacity:0.7}}
                 >
-                  Se connecter pour WhatsApp
+                  💬 WhatsApp
                 </button>
               )
             )}
