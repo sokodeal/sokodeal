@@ -25,8 +25,8 @@ export function generateSlug(ad: {
 }
 
 export function extractIdFromSlug(slug: string): string {
-  const parts = slug.split('-')
-  return parts[parts.length - 1]
+  const clean = slug.replace(/-/g, '')
+  return clean.slice(-8)
 }
 
 export function isFullUUID(str: string): boolean {

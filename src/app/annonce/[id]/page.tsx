@@ -111,12 +111,13 @@ export default function AnnonceDetail() {
         }
       } else {
         const shortId = extractIdFromSlug(rawId)
-        const result = await supabase
+        const { data: slugData } = await supabase
           .from('ads')
           .select('*')
           .ilike('id', shortId + '%')
-          .single()
-        data = result.data
+          .maybeSingle()
+
+        data = slugData
       }
 
       if (data) {
