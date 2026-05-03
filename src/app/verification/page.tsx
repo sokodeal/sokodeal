@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const PUBLISH_DRAFT_KEY = 'sokodeal:publish-draft'
+
 export default function VerificationPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -27,9 +29,12 @@ export default function VerificationPage() {
   // Étape 3 — CGU
   const [acceptCGU, setAcceptCGU] = useState(false)
   const [acceptArnaque, setAcceptArnaque] = useState(false)
+  const [hasPublishDraft, setHasPublishDraft] = useState(false)
 
   useEffect(() => {
     const init = async () => {
+      const hasDraft = !!window.localStorage.getItem(PUBLISH_DRAFT_KEY)
+      setHasPublishDraft(hasDraft)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         // Déjà connecté — vérifier si déjà vérifié
@@ -39,6 +44,10 @@ export default function VerificationPage() {
           .eq('id', user.id)
           .single()
         if (userData?.is_verified) {
+          if (hasDraft) {
+            window.location.href = '/publier?verified=1'
+            return
+          }
           setStep('success')
         } else {
           // Connecté mais pas vérifié → aller à l'identité
@@ -153,6 +162,9 @@ export default function VerificationPage() {
       if (updateError) throw updateError
 
       setStep('success')
+      if (window.localStorage.getItem(PUBLISH_DRAFT_KEY)) {
+        window.location.href = '/publier?verified=1'
+      }
     } catch (err: any) {
       setError(err.message || 'Erreur. Réessayez.')
       setStep('cgu')
@@ -385,9 +397,9 @@ export default function VerificationPage() {
               <p style={{ color: '#6b7c6e', marginBottom: '24px', fontSize: '0.88rem', lineHeight: 1.6 }}>
                 Votre compte est vérifié. Le badge ✅ apparaît sur votre profil.
               </p>
-              <button onClick={() => window.location.href = '/publier'}
+              <button onClick={() => window.location.href = '/publier?verified=1'}
                 style={{ width: '100%', padding: '13px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer', marginBottom: '10px' }}>
-                Publier une annonce
+                {hasPublishDraft ? 'Reprendre mon annonce' : 'Publier une annonce'}
               </button>
               <button onClick={() => window.location.href = '/'}
                 style={{ width: '100%', padding: '13px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '10px', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: '0.88rem', color: '#6b7c6e', cursor: 'pointer' }}>

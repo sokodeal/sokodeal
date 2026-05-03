@@ -105,6 +105,15 @@ export default function AnnonceDetail() {
       }
       const { data: authData } = await supabase.auth.getUser()
       setUser(authData.user)
+
+      // Enregistrer la vue sans compter le vendeur lui-meme.
+      if (data && authData.user?.id !== data.user_id) {
+        void supabase.from('ad_views').insert([{
+          ad_id: data.id,
+          viewer_id: authData.user?.id || null,
+        }])
+      }
+
       setLoading(false)
     }
     init()

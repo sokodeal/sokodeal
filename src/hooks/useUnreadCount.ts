@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function useUnreadCount() {
@@ -10,41 +10,53 @@ export function useUnreadCount() {
       .select('*', { count: 'exact', head: true })
       .eq('receiver_id', uid)
       .eq('is_read', false)
+
     setUnreadCount(count || 0)
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     let userId: string | null = null
-    let channel: any = null
-    let broadcastChannel: any = null
-    let interval: any = null
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let broadcastChannel: ReturnType<typeof supabase.channel> | null = null
+    let interval: ReturnType<typeof setInterval> | null = null
+
+    const refreshUnreadCount = () => {
+      setUnreadCount(0)
+      if (userId) setTimeout(() => loadCount(userId!), 300)
+    }
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || cancelled) return
+
       userId = user.id
       await loadCount(user.id)
+      if (cancelled) return
 
-      // Realtime pour nouveaux messages
-      channel = supabase.channel('unread-' + user.id.slice(0, 8))
-      channel.on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: 'receiver_id=eq.' + user.id,
-      }, () => {
-        setUnreadCount(c => c + 1)
-      }).subscribe()
+      const suffix = `${user.id.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-      // ✅ Écouter quand l'utilisateur ouvre une conversation
-      broadcastChannel = supabase.channel('unread-realtime-' + user.id.slice(0, 8))
-      broadcastChannel.on('broadcast', { event: 'messages_read' }, () => {
-        // Reset immédiat puis recharge depuis la DB
-        setUnreadCount(0)
-        if (userId) setTimeout(() => loadCount(userId!), 500)
-      }).subscribe()
+      channel = supabase
+        .channel('unread-' + suffix)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: 'receiver_id=eq.' + user.id,
+        }, () => {
+          setUnreadCount((count) => count + 1)
+        })
+      channel.subscribe()
 
-      // ✅ Interval 10s au lieu de 3s — moins agressif
+      broadcastChannel = supabase
+        .channel('unread-realtime-' + suffix)
+        .on('broadcast', { event: 'messages_read' }, () => {
+          refreshUnreadCount()
+        })
+      broadcastChannel.subscribe()
+
+      window.addEventListener('sokodeal:messages-read', refreshUnreadCount)
+
       interval = setInterval(() => {
         if (userId) loadCount(userId)
       }, 10000)
@@ -53,9 +65,11 @@ export function useUnreadCount() {
     init()
 
     return () => {
+      cancelled = true
       if (channel) supabase.removeChannel(channel)
       if (broadcastChannel) supabase.removeChannel(broadcastChannel)
       if (interval) clearInterval(interval)
+      window.removeEventListener('sokodeal:messages-read', refreshUnreadCount)
     }
   }, [loadCount])
 

@@ -71,10 +71,14 @@ export default function MessagesPage() {
       const inConv = (
         (m.sender_id === user.id && m.receiver_id === activeConv.other_id) ||
         (m.receiver_id === user.id && m.sender_id === activeConv.other_id)
-      ) && m.ad_id === activeConv.ad_id
+      ) && (m.ad_id || null) === (activeConv.ad_id || null)
       if (inConv) {
-        setMessages(prev => [...prev, m])
-        markAsRead(user.id)
+        if (m.receiver_id === user.id) {
+          markConversationAsRead([m])
+          setMessages(prev => [...prev, { ...m, is_read: true }])
+        } else {
+          setMessages(prev => [...prev, m])
+        }
       }
     }).subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -144,60 +148,48 @@ export default function MessagesPage() {
   }
 
   const openConversation = async (conv: any) => {
+    const currentUser = user || (await supabase.auth.getUser()).data.user
+    if (!currentUser) { window.location.href = '/auth?mode=login'; return }
+
     setActiveConv(conv)
 
     const key = `${conv.ad_id}__${conv.other_id}`
     readConvsRef.current.add(key)
-
-    // Marquer comme lu en base
-    if (conv.ad_id) {
-      await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('receiver_id', user?.id)
-        .eq('ad_id', conv.ad_id)
-        .eq('sender_id', conv.other_id)
-    } else {
-      await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('receiver_id', user?.id)
-        .eq('sender_id', conv.other_id)
-    }
 
     // Charger les messages
     let query = supabase
       .from('messages')
       .select('*')
       .or(
-        `and(sender_id.eq.${user?.id},receiver_id.eq.${conv.other_id}),` +
-        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${user?.id})`
+        `and(sender_id.eq.${currentUser.id},receiver_id.eq.${conv.other_id}),` +
+        `and(sender_id.eq.${conv.other_id},receiver_id.eq.${currentUser.id})`
       )
       .order('created_at', { ascending: true })
 
-    if (conv.ad_id) query = query.eq('ad_id', conv.ad_id)
+    query = conv.ad_id ? query.eq('ad_id', conv.ad_id) : query.is('ad_id', null)
 
     const { data: updatedData } = await query
-    setMessages(updatedData || [])
+    const loadedMessages = updatedData || []
+    await markConversationAsRead(loadedMessages)
+    setMessages(loadedMessages.map((m: any) =>
+      m.receiver_id === currentUser.id ? { ...m, is_read: true } : m
+    ))
 
     // ✅ Reset badge local
     setConversations(prev => prev.map(c =>
-      c.ad_id === conv.ad_id && c.other_id === conv.other_id ? { ...c, unread: 0 } : c
+      sameConversation(c, conv) ? { ...c, unread: 0 } : c
     ))
-
-    // ✅ Broadcast pour le hook useUnreadCount
-    const broadcastCh = supabase.channel('unread-realtime-' + user?.id?.slice(0, 8))
-    broadcastCh.send({ type: 'broadcast', event: 'messages_read', payload: {} })
   }
 
   const markAsRead = async (userId: string) => {
     if (!activeConv) return
-    await supabase
-      .from('messages')
-      .update({ is_read: true })
-      .eq('receiver_id', userId)
-      .eq('sender_id', activeConv.other_id)
-      .eq('ad_id', activeConv.ad_id)
+    await markConversationAsRead(messages)
+    setMessages(prev => prev.map((m: any) =>
+      m.receiver_id === userId ? { ...m, is_read: true } : m
+    ))
+    setConversations(prev => prev.map(c =>
+      sameConversation(c, activeConv) ? { ...c, unread: 0 } : c
+    ))
   }
 
   const sendMessage = async () => {
@@ -244,6 +236,41 @@ export default function MessagesPage() {
     if (conv.other_user?.username) return '@' + conv.other_user.username
     if (conv.other_user?.full_name) return conv.other_user.full_name
     return conv.other_email || 'Utilisateur'
+  }
+
+  function sameConversation(a: any, b: any) {
+    return a?.other_id === b?.other_id && (a?.ad_id || null) === (b?.ad_id || null)
+  }
+
+  function notifyMessagesRead() {
+    window.dispatchEvent(new Event('sokodeal:messages-read'))
+  }
+
+  async function markConversationAsRead(conversationMessages: any[]) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return false
+
+    const messageIds = conversationMessages
+      .filter((m: any) => m.receiver_id === session.user.id && !m.is_read)
+      .map((m: any) => m.id)
+
+    if (messageIds.length === 0) {
+      notifyMessagesRead()
+      return true
+    }
+
+    const res = await fetch('/api/messages/read', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ message_ids: messageIds }),
+    })
+
+    if (res.ok) notifyMessagesRead()
+    else console.error('Erreur marquage messages lus', await res.text())
+    return res.ok
   }
 
   if (loading) return (

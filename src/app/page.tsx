@@ -3,12 +3,14 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import FavoriteButton from '@/components/FavoriteButton'
 import { useUnreadCount } from '@/hooks/useUnreadCount'
-import { SUBCATEGORIES, MAIN_CATEGORIES } from '@/lib/categories'
+import { SUBCATEGORIES } from '@/lib/categories'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
+import { LAUNCH_CITIES, LAUNCH_MAIN_CATEGORIES, LAUNCH_SUBCATEGORIES, matchesCategoryGroup } from '@/lib/market-config'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
 // Coordonnées approximatives des villes rwandaises
-const VILLE_COORDS: { [key: string]: [number, number] } = {
+const VILLE_COORDS: Record<string, [number, number]> = {
   'Kigali': [30.0619, -1.9441],
   'Butare': [29.7392, -2.5967],
   'Musanze': [29.6349, -1.4994],
@@ -23,7 +25,7 @@ const VILLE_COORDS: { [key: string]: [number, number] } = {
   'Huye': [29.7392, -2.5967],
   'Nyagatare': [30.3285, -1.2985],
   'Muhanga': [29.7511, -2.0836],
-]
+}
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('main')
@@ -54,11 +56,7 @@ export default function Home() {
 
   const isImmoMode = filterCat === 'immo' || filterCat === 'immo-vente' || filterCat === 'immo-location' || filterCat === 'immo-terrain'
 
-  const villes = [
-    'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
-    'Byumba','Rwamagana','Nyamata','Kibungo','Gitarama','Muhanga','Huye',
-    'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
-  ]
+  const villes = LAUNCH_CITIES
 
   const catEmoji: any = {
     'immo-vente':'🏡','immo-location':'🏢','immo-terrain':'🌿',
@@ -71,7 +69,7 @@ export default function Home() {
     'immo-vente':'Vente','immo-location':'Location','immo-terrain':'Terrain',
   }
 
-  const subcats = SUBCATEGORIES[filterCat] || []
+  const subcats = LAUNCH_SUBCATEGORIES[filterCat] || SUBCATEGORIES[filterCat] || []
 
   const handleNavCat = (cat: string) => {
     setFilterCat(cat)
@@ -87,6 +85,12 @@ export default function Home() {
     const fetchAds = async () => {
       const { data } = await supabase.from('ads').select('*').eq('is_active', true).order('created_at', { ascending: false })
       if (data) {
+        if (!FEATURE_FLAGS.boostedListings) {
+          const regularAds = data.map(ad => ({ ...ad, is_boosted: false }))
+          setAds(regularAds); setFiltered(regularAds)
+          setLoading(false)
+          return
+        }
         const now = new Date().toISOString()
         const { data: boosts } = await supabase.from('boosts').select('ad_id').eq('is_active', true).gt('ends_at', now)
         const boostedIds = new Set((boosts || []).map((b: any) => b.ad_id))
@@ -179,7 +183,7 @@ export default function Home() {
         const el = document.createElement('div')
         el.innerHTML = `
           <div style="
-            background: ${selectedImmoAd?.id === ad.id ? '#0f5233' : ad.is_boosted ? '#f5a623' : '#1a7a4a'};
+            background: ${selectedImmoAd?.id === ad.id ? '#0f5233' : (FEATURE_FLAGS.boostedListings && ad.is_boosted) ? '#f5a623' : '#1a7a4a'};
             color: white;
             padding: 6px 10px;
             border-radius: 20px;
@@ -255,13 +259,7 @@ export default function Home() {
     }
 
     if (filterCat) {
-      if (filterCat === 'immo') {
-        if (filterSubcat) result = result.filter(ad => ad.category === filterSubcat)
-        else result = result.filter(ad => ['immo-vente','immo-location','immo-terrain'].includes(ad.category))
-      } else {
-        result = result.filter(ad => ad.category === filterCat)
-        if (filterSubcat) result = result.filter(ad => ad.subcategory === filterSubcat)
-      }
+      result = result.filter(ad => filterSubcat ? ad.category === filterSubcat : matchesCategoryGroup(filterCat, ad.category))
     }
 
     if (filterVille) result = result.filter(ad => ad.province?.toLowerCase().includes(filterVille.toLowerCase()))
@@ -311,13 +309,13 @@ export default function Home() {
         * { box-sizing: border-box; }
         html, body { overflow-x: hidden; max-width: 100vw; }
         @media (max-width: 768px) {
-          .hero-title { font-size: 1.7rem !important; }
+          .hero-title { font-size: 1.55rem !important; }
           .ads-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
           .btn-signup { display: none !important; }
           .header-inner { padding: 0 4% !important; height: 56px !important; }
           .deposer-btn { padding: 6px 8px !important; font-size: 0.75rem !important; }
           .deposer-text { display: none !important; }
-          .hero-section { padding: 36px 4% 32px !important; }
+          .hero-section { padding: 24px 4% 22px !important; }
           .mon-compte-label { display: none !important; }
           .search-bar { display: none !important; }
           .save-search-btn { display: none !important; }
@@ -404,22 +402,23 @@ export default function Home() {
             style={{display:'flex', alignItems:'center', padding:'9px 14px', color: filterCat === '' ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: filterCat === '' ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterCat === '' ? '2px solid #f5a623' : '2px solid transparent'}}>
             Tout
           </a>
-          {MAIN_CATEGORIES.map((item) => (
+          {LAUNCH_MAIN_CATEGORIES.map((item) => (
             <a key={item.value} href="#" className="nav-cat"
               onClick={e => { e.preventDefault(); handleNavCat(item.value) }}
               style={{display:'flex', alignItems:'center', padding:'9px 14px', color: filterCat === item.value ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: filterCat === item.value ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterCat === item.value ? '2px solid #f5a623' : '2px solid transparent'}}>
               {item.label}
             </a>
           ))}
-          <a href="#" className="nav-cat" onClick={e => { e.preventDefault(); setActiveSection('jobs') }}
-            style={{display:'flex', alignItems:'center', padding:'9px 14px', color: activeSection === 'jobs' ? '#1a7a4a' : '#6b7c6e', textDecoration:'none', fontSize:'0.82rem', fontWeight: activeSection === 'jobs' ? 700 : 400, whiteSpace:'nowrap', borderBottom: activeSection === 'jobs' ? '2px solid #f5a623' : '2px solid transparent'}}>
-            💼 Jobs
-          </a>
         </div>
 
         {/* Sous-catégories */}
         {subcats.length > 0 && !isImmoMode && (
           <div style={{borderTop:'1px solid #f0f4f1', padding:'0 5%', display:'flex', overflowX:'auto', scrollbarWidth:'none', maxWidth:'1300px', margin:'0 auto', background:'#fafafa'}}>
+            <a href="#" className="nav-cat"
+              onClick={e => { e.preventDefault(); setFilterSubcat('') }}
+              style={{display:'flex', alignItems:'center', padding:'7px 12px', color: filterSubcat === '' ? '#0f5233' : '#6b7c6e', textDecoration:'none', fontSize:'0.78rem', fontWeight: filterSubcat === '' ? 700 : 400, whiteSpace:'nowrap', borderBottom: filterSubcat === '' ? '2px solid #1a7a4a' : '2px solid transparent'}}>
+              Tous
+            </a>
             {subcats.map((sub) => (
               <a key={sub.value} href="#" className="nav-cat"
                 onClick={e => { e.preventDefault(); setFilterSubcat(sub.value) }}
@@ -525,21 +524,13 @@ export default function Home() {
 
       {/* ── HERO ── */}
       {!search.startsWith('@') && activeSection === 'main' && !search && !filterCat && (
-        <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'52px 5% 44px'}}>
+        <div className="hero-section" style={{background:'linear-gradient(135deg, #0f5233 0%, #1a7a4a 100%)', padding:'30px 5% 26px'}}>
           <div style={{maxWidth:'1300px', margin:'0 auto'}}>
-            <p style={{color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'12px'}}>Marketplace N1 d Afrique</p>
-            <h1 className="hero-title" style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'2.4rem', color:'white', lineHeight:1.15, marginBottom:'14px'}}>
-              Achetez et vendez partout en Afrique
+            <p style={{color:'rgba(255,255,255,0.72)', fontSize:'0.76rem', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'8px'}}>Kigali</p>
+            <h1 className="hero-title" style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.9rem', color:'white', lineHeight:1.15, marginBottom:'10px'}}>
+              Achetez et vendez partout au Rwanda
             </h1>
-            <p style={{color:'rgba(255,255,255,0.65)', fontSize:'0.95rem', marginBottom:'32px', maxWidth:'420px', lineHeight:1.6}}>Immobilier, vehicules, electronique et bien plus.</p>
-            <div style={{display:'flex', gap:'28px'}}>
-              {[['48K+','Annonces'],['120K+','Membres'],['10+','Pays']].map(([n,l]) => (
-                <div key={l}>
-                  <strong style={{display:'block', fontFamily:'Syne,sans-serif', fontSize:'1.4rem', fontWeight:800, color:'#f5a623'}}>{n}</strong>
-                  <span style={{fontSize:'0.72rem', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.06em'}}>{l}</span>
-                </div>
-              ))}
-            </div>
+            <p style={{color:'rgba(255,255,255,0.68)', fontSize:'0.9rem', margin:0, maxWidth:'460px', lineHeight:1.5}}>Immobilier, vehicules, tech, mode et services entre particuliers.</p>
           </div>
         </div>
       )}
@@ -565,9 +556,9 @@ export default function Home() {
               </div>
             ) : immoAds.map((ad: any) => (
               <div key={ad.id} className="immo-card" onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + ad.id }}
-                style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)'}}>
+                style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)'}}>
                 {/* Photo */}
-                <div style={{height:'160px', background:'#f5f7f5', overflow:'hidden', position:'relative'}}>
+                <div style={{height:'136px', background:'#f5f7f5', overflow:'hidden', position:'relative'}}>
                   {ad.images && ad.images.length > 0 ? (
                     <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                   ) : (
@@ -575,7 +566,7 @@ export default function Home() {
                   )}
                   {/* Badges */}
                   <div style={{position:'absolute', top:'10px', left:'10px', display:'flex', gap:'6px'}}>
-                    {ad.is_boosted && <span style={{background:'#f5a623', color:'#111a14', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:800}}>⚡ Mis en avant</span>}
+                    {FEATURE_FLAGS.boostedListings && ad.is_boosted && <span style={{background:'#f5a623', color:'#111a14', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:800}}>⚡ Mis en avant</span>}
                     <span style={{background: ad.category === 'immo-vente' ? '#1a7a4a' : ad.category === 'immo-location' ? '#0f5233' : '#6b7c6e', color:'white', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:700}}>
                       {catLabel[ad.category] || ad.category}
                     </span>
@@ -586,39 +577,39 @@ export default function Home() {
                 </div>
 
                 {/* Infos */}
-                <div style={{padding:'14px'}}>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1.1rem', color:'#0f5233', marginBottom:'4px'}}>
+                <div style={{padding:'11px 12px 12px'}}>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#0f5233', marginBottom:'3px'}}>
                     {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600, color:'#6b7c6e'}}>RWF{ad.category === 'immo-location' ? '/mois' : ''}</span>
                   </div>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'#111a14', marginBottom:'8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.84rem', color:'#111a14', marginBottom:'6px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                     {ad.title}
                   </div>
 
                   {/* Caractéristiques */}
-                  <div style={{display:'flex', gap:'12px', marginBottom:'8px', flexWrap:'wrap'}}>
+                  <div style={{display:'flex', gap:'8px', marginBottom:'6px', flexWrap:'wrap', lineHeight:1.2}}>
                     {ad.surface && (
-                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
                         📐 {ad.surface} m²
                       </span>
                     )}
                     {ad.chambres && (
-                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
                         🛏️ {ad.chambres} ch.
                       </span>
                     )}
                     {ad.salles_de_bain && (
-                      <span style={{fontSize:'0.75rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
+                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
                         🚿 {ad.salles_de_bain} sdb
                       </span>
                     )}
                     {ad.surface && ad.price && ad.category !== 'immo-location' && (
-                      <span style={{fontSize:'0.75rem', color:'#1a7a4a', fontWeight:600}}>
+                      <span style={{fontSize:'0.7rem', color:'#1a7a4a', fontWeight:600}}>
                         {Math.round(ad.price / ad.surface).toLocaleString()} RWF/m²
                       </span>
                     )}
                   </div>
 
-                  <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>
+                  <div style={{fontSize:'0.7rem', color:'#6b7c6e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                     📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
                     {ad.sector ? ' · ' + ad.sector : ''}
                   </div>
@@ -750,17 +741,17 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <div className="ads-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px'}}>
+            <div className="ads-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px'}}>
               {displayAds.map((ad: any) => (
                 <div key={ad.id} className="ad-card" onClick={() => window.location.href='/annonce/' + ad.id}
-                  style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9', boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                  style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9', boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
                   <div style={{height:'176px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem', overflow:'hidden', position:'relative'}}>
                     {ad.images && ad.images.length > 0 ? (
                       <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                     ) : (
                       <span style={{opacity:0.5}}>{catEmoji[ad.category] || '📦'}</span>
                     )}
-                    {ad.is_boosted && (
+                    {FEATURE_FLAGS.boostedListings && ad.is_boosted && (
                       <div style={{position:'absolute', top:'10px', left:'10px', background:'#f5a623', color:'#111a14', padding:'3px 9px', borderRadius:'6px', fontSize:'0.68rem', fontWeight:800}}>
                         Mis en avant
                       </div>

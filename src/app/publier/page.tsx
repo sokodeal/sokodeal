@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { SUBCATEGORIES, PUBLISH_CATEGORIES } from '@/lib/categories'
+import { SUBCATEGORIES } from '@/lib/categories'
+import { LAUNCH_CITIES, LAUNCH_MAIN_CATEGORIES, LAUNCH_SUBCATEGORIES } from '@/lib/market-config'
 
 const INDICATIFS = [
   { code: '+250', flag: '🇷🇼', pays: 'Rwanda' },
@@ -16,11 +17,14 @@ const INDICATIFS = [
 ]
 
 const isImmo = (cat: string) => ['immo-vente', 'immo-location', 'immo-terrain'].includes(cat)
+const MAX_PHOTOS = 5
+const PUBLISH_DRAFT_KEY = 'sokodeal:publish-draft'
 
 export default function PublierPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [photos, setPhotos] = useState<File[]>([])
+  const [draftReady, setDraftReady] = useState(false)
   const [form, setForm] = useState({
     title: '', category: '', subcategory: '', price: '', description: '',
     ville: '', district: '',
@@ -36,8 +40,56 @@ export default function PublierPage() {
   })
   const [msg, setMsg] = useState('')
 
+  useEffect(() => {
+    const savedDraft = window.localStorage.getItem(PUBLISH_DRAFT_KEY)
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft)
+        if (draft?.form) setForm((prev) => ({ ...prev, ...draft.form }))
+        if (draft?.immoForm) setImmoForm((prev) => ({ ...prev, ...draft.immoForm }))
+        const photoCount = Number(draft?.photoCount || 0)
+        setMsg(photoCount > 0
+          ? 'Votre brouillon a ete restaure. Veuillez rajouter vos photos pour finaliser l annonce.'
+          : 'Votre brouillon a ete restaure.')
+      } catch {
+        window.localStorage.removeItem(PUBLISH_DRAFT_KEY)
+      }
+    }
+    setDraftReady(true)
+  }, [])
+
+  useEffect(() => {
+    if (!draftReady || success) return
+    const hasDraftContent = Object.values(form).some(value => Boolean(value)) ||
+      Object.values(immoForm).some(value => Boolean(value)) ||
+      photos.length > 0
+    if (!hasDraftContent) return
+    window.localStorage.setItem(PUBLISH_DRAFT_KEY, JSON.stringify({
+      form,
+      immoForm,
+      photoCount: photos.length,
+      savedAt: Date.now(),
+    }))
+  }, [draftReady, form, immoForm, photos.length, success])
+
+  const savePublishDraft = () => {
+    window.localStorage.setItem(PUBLISH_DRAFT_KEY, JSON.stringify({
+      form,
+      immoForm,
+      photoCount: photos.length,
+      savedAt: Date.now(),
+    }))
+  }
+
+  const clearPublishDraft = () => {
+    window.localStorage.removeItem(PUBLISH_DRAFT_KEY)
+  }
+
   // Sous-catégories disponibles pour la catégorie choisie
-  const subcats = SUBCATEGORIES[form.category] || []
+  const launchSubcats = LAUNCH_SUBCATEGORIES[form.category] || []
+  const subcats = launchSubcats.length > 0 ? launchSubcats : (SUBCATEGORIES[form.category] || [])
+  const publishCategory = launchSubcats.length > 0 ? form.subcategory : form.category
+  const isImmoSelected = form.category === 'immo' || isImmo(publishCategory)
 
   const handleCategoryChange = (cat: string) => {
     setForm({ ...form, category: cat, subcategory: '' })
@@ -46,16 +98,30 @@ export default function PublierPage() {
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || [])
     const combined = [...photos, ...newFiles]
-    if (combined.length > 5) { setMsg('Maximum 5 photos au total'); return }
-    setPhotos(combined); setMsg('')
+    const limited = combined.slice(0, MAX_PHOTOS)
+    setPhotos(limited)
+    e.target.value = ''
+    if (combined.length > MAX_PHOTOS) {
+      setMsg('Vous pouvez ajouter maximum 5 photos. Les 5 premieres ont ete gardees.')
+      return
+    }
+    setMsg('')
   }
 
   const handleSubmit = async () => {
     if (!form.title || !form.category || !form.price) {
       setMsg('Titre, catégorie et prix sont obligatoires'); return
     }
+    if (launchSubcats.length > 0 && !form.subcategory) {
+      setMsg('Choisissez une précision pour cette catégorie'); return
+    }
     if (!form.hide_phone && !form.phone) {
       setMsg('Ajoutez un numéro ou activez "Contact via messagerie uniquement"'); return
+    }
+    if (photos.length > MAX_PHOTOS) {
+      setPhotos(photos.slice(0, MAX_PHOTOS))
+      setMsg('Vous pouvez ajouter maximum 5 photos.')
+      return
     }
     setLoading(true); setMsg('')
     const { data: { user } } = await supabase.auth.getUser()
@@ -69,8 +135,9 @@ export default function PublierPage() {
 
     if (!userData?.is_verified) {
       setLoading(false)
+      savePublishDraft()
       setMsg('🔒 Vous devez vérifier votre identité avant de publier une annonce.')
-      setTimeout(() => window.location.href = '/verification', 2000)
+      setTimeout(() => window.location.href = '/verification?from=publier', 2000)
       return
     }
 
@@ -89,7 +156,7 @@ export default function PublierPage() {
     }
 
     const imageUrls: string[] = []
-    for (const photo of photos) {
+    for (const photo of photos.slice(0, MAX_PHOTOS)) {
       const fileName = `${Date.now()}-${photo.name}`
       const { data, error } = await supabase.storage.from('annonces').upload(fileName, photo)
       if (!error && data) {
@@ -105,7 +172,7 @@ export default function PublierPage() {
 
     const adData: any = {
       title: form.title,
-      category: form.category,
+      category: publishCategory,
       subcategory: form.subcategory || null,
       price: parseFloat(form.price),
       description: form.description,
@@ -119,7 +186,7 @@ export default function PublierPage() {
       user_id: user.id,
     }
 
-    if (isImmo(form.category)) {
+    if (isImmoSelected) {
       if (immoForm.immo_type) adData.immo_type = immoForm.immo_type
       if (immoForm.surface) adData.surface = parseInt(immoForm.surface)
       if (immoForm.surface_terrain) adData.surface_terrain = parseInt(immoForm.surface_terrain)
@@ -133,6 +200,7 @@ export default function PublierPage() {
 
     const { error } = await supabase.from('ads').insert([adData])
     if (error) { setMsg(error.message); setLoading(false); return }
+    clearPublishDraft()
     setSuccess(true); setLoading(false)
   }
 
@@ -148,11 +216,7 @@ export default function PublierPage() {
     marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em'
   }
 
-  const villes = [
-    'Kigali','Butare','Musanze','Ruhengeri','Gisenyi','Cyangugu','Kibuye',
-    'Byumba','Rwamagana','Nyamata','Kibungo','Gitarama','Muhanga','Huye',
-    'Rubavu','Rusizi','Karongi','Ngoma','Bugesera','Nyagatare','Gatsibo'
-  ]
+  const villes = LAUNCH_CITIES
 
   const immoTypes: any = {
     'immo-vente': ['Appartement','Villa','Studio','Duplex','Bureau','Commerce','Autre'],
@@ -194,7 +258,7 @@ export default function PublierPage() {
         <label style={label}>Catégorie</label>
         <select value={form.category} onChange={e => handleCategoryChange(e.target.value)} style={{...inp, cursor:'pointer'}}>
           <option value="">Choisir une catégorie</option>
-          {PUBLISH_CATEGORIES.map(c => (
+          {LAUNCH_MAIN_CATEGORIES.map(c => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
@@ -202,12 +266,13 @@ export default function PublierPage() {
         {/* ✅ SOUS-CATEGORIE — apparaît si la catégorie a des sous-catégories */}
         {subcats.length > 0 && (
           <div style={{marginBottom:'4px'}}>
-            <label style={label}>Sous-catégorie</label>
+            <label style={label}>Précision</label>
             <select
               value={form.subcategory}
               onChange={e => setForm({...form, subcategory: e.target.value})}
               style={{...inp, cursor:'pointer'}}
             >
+              <option value="">Choisir...</option>
               {subcats.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
@@ -216,7 +281,7 @@ export default function PublierPage() {
         )}
 
         {/* CHAMPS IMMO DYNAMIQUES */}
-        {isImmo(form.category) && (
+        {isImmoSelected && (
           <div style={{background:'#e8f5ee', borderRadius:'12px', padding:'16px', marginBottom:'16px', border:'1px solid #b7dfca'}}>
             <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', color:'#1a7a4a', marginBottom:'14px'}}>
               🏡 Informations immobilières
@@ -226,7 +291,7 @@ export default function PublierPage() {
             <select value={immoForm.immo_type} onChange={e => setImmoForm({...immoForm, immo_type: e.target.value})}
               style={{...inp, marginBottom:'10px'}}>
               <option value="">Choisir...</option>
-              {(immoTypes[form.category] || []).map((t: string) => <option key={t} value={t}>{t}</option>)}
+              {(immoTypes[publishCategory] || []).map((t: string) => <option key={t} value={t}>{t}</option>)}
             </select>
 
             {/* Surface habitable */}
@@ -241,7 +306,7 @@ export default function PublierPage() {
               onChange={e => setImmoForm({...immoForm, surface_terrain: e.target.value})}
               style={{...inp, marginBottom:'10px'}} />
 
-            {form.category !== 'immo-terrain' && (
+            {publishCategory !== 'immo-terrain' && (
               <>
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
                   <div>
@@ -285,7 +350,7 @@ export default function PublierPage() {
               </>
             )}
 
-            {form.category === 'immo-location' && (
+            {publishCategory === 'immo-location' && (
               <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
                 <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', padding:'10px', background:'white', borderRadius:'8px', border:'1px solid #e8ede9'}}>
                   <input type="checkbox" checked={immoForm.meuble} onChange={e => setImmoForm({...immoForm, meuble: e.target.checked})}
@@ -308,21 +373,21 @@ export default function PublierPage() {
           onChange={e => setForm({...form, title: e.target.value})} style={inp}/>
 
         {/* PRIX */}
-        <label style={label}>Prix (RWF){form.category === 'immo-location' ? ' / mois' : ''}</label>
+        <label style={label}>Prix (RWF){publishCategory === 'immo-location' ? ' / mois' : ''}</label>
         <input type="number" placeholder="Ex: 85000000" value={form.price}
           onChange={e => setForm({...form, price: e.target.value})} style={inp}/>
 
         {/* DESCRIPTION */}
         <label style={label}>Description</label>
         <textarea
-          placeholder={isImmo(form.category)
+          placeholder={isImmoSelected
             ? "Décrivez le bien : emplacement, état, équipements..."
             : form.category === 'animaux'
             ? "Race, âge, sexe, vaccins, caractère..."
             : "Décrivez votre article en détail..."}
           value={form.description}
           onChange={e => setForm({...form, description: e.target.value})}
-          style={{...inp, minHeight: isImmo(form.category) ? '120px' : '80px', resize:'vertical'}}/>
+          style={{...inp, minHeight: isImmoSelected ? '120px' : '80px', resize:'vertical'}}/>
 
         {/* VILLE */}
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
@@ -386,12 +451,13 @@ export default function PublierPage() {
 
         {/* PHOTOS */}
         <div style={{marginBottom:'16px'}}>
-          <label style={label}>Photos ({photos.length}/5)</label>
-          {photos.length < 5 && (
+          <label style={label}>Photos ({photos.length}/{MAX_PHOTOS})</label>
+          {photos.length < MAX_PHOTOS && (
             <input type="file" accept="image/*" multiple onChange={handlePhotos}
               style={{width:'100%', padding:'10px', border:'1.5px dashed #e8ede9', borderRadius:'9px', background:'#fafaf9', cursor:'pointer', boxSizing:'border-box', marginBottom:'10px'}}
             />
           )}
+          <p style={{fontSize:'0.74rem', color:'#6b7c6e', marginBottom:'8px'}}>Vous pouvez ajouter maximum 5 photos.</p>
           {photos.length > 0 && (
             <div>
               <p style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'8px'}}>Cliquez sur une photo pour la mettre en première position</p>
@@ -412,7 +478,7 @@ export default function PublierPage() {
                         PRINCIPALE
                       </div>
                     )}
-                    <button onClick={ev => { ev.stopPropagation(); setPhotos(photos.filter((_,j) => j !== i)) }}
+                    <button onClick={ev => { ev.stopPropagation(); setPhotos(photos.filter((_,j) => j !== i)); setMsg('') }}
                       style={{position:'absolute', top:'-5px', right:'-5px', width:'18px', height:'18px', background:'#e74c3c', color:'white', border:'none', borderRadius:'50%', fontSize:'0.65rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800}}>
                       ×
                     </button>
@@ -435,7 +501,7 @@ export default function PublierPage() {
           fontSize:'0.95rem', color:'white', cursor: loading ? 'not-allowed' : 'pointer', marginBottom:'12px'
         }}>{loading ? '⏳ Publication...' : 'Publier mon annonce'}</button>
 
-        <a href="/" style={{display:'block', textAlign:'center', color:'#6b7c6e', fontSize:'0.82rem', textDecoration:'none'}}>
+        <a href="/" onClick={() => clearPublishDraft()} style={{display:'block', textAlign:'center', color:'#6b7c6e', fontSize:'0.82rem', textDecoration:'none'}}>
           Retour
         </a>
       </div>

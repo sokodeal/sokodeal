@@ -5,6 +5,8 @@ import { useUnreadCount } from '@/hooks/useUnreadCount'
 
 export default function Header() {
   const [user, setUser] = useState<any>(null)
+  const [logoutLoading, setLogoutLoading] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
   const { unreadCount } = useUnreadCount()
 
   useEffect(() => {
@@ -18,6 +20,21 @@ export default function Header() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  const handleLogout = async () => {
+    setLogoutLoading(true)
+    setLogoutError('')
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      setLogoutError(error.message)
+      setLogoutLoading(false)
+      return
+    }
+
+    setUser(null)
+    window.location.href = '/'
+  }
 
   return (
     <>
@@ -43,7 +60,7 @@ export default function Header() {
           </a>
 
           {/* BOUTONS */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, position: 'relative' }}>
             {user ? (
               <>
                 <button onClick={() => window.location.href = '/messages'} style={{ position: 'relative', width: '38px', height: '38px', background: '#f5f7f5', border: '1px solid #e8ede9', borderRadius: '9px', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -60,6 +77,15 @@ export default function Header() {
                   </div>
                   <span className="mon-compte-label">Mon compte</span>
                 </button>
+                <button onClick={handleLogout} disabled={logoutLoading} title="Se deconnecter" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: logoutLoading ? '#f5f7f5' : '#fff1f0', border: '1px solid #ffd6d6', borderRadius: '9px', color: logoutLoading ? '#6b7c6e' : '#c0392b', fontFamily: 'DM Sans,sans-serif', fontSize: '0.82rem', fontWeight: 700, cursor: logoutLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: '0.95rem', lineHeight: 1 }}>⏻</span>
+                  <span className="mon-compte-label">{logoutLoading ? 'Sortie...' : 'Se deconnecter'}</span>
+                </button>
+                {logoutError && (
+                  <div style={{ position: 'absolute', top: '44px', right: 0, background: '#fff1f0', border: '1px solid #ffd6d6', color: '#c0392b', borderRadius: '8px', padding: '8px 10px', fontFamily: 'DM Sans,sans-serif', fontSize: '0.75rem', width: '220px', boxShadow: '0 8px 24px rgba(17,26,20,.12)' }}>
+                    {logoutError}
+                  </div>
+                )}
               </>
             ) : (
               <>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Header from '@/components/Header'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 const PLANS = [
   {
@@ -189,6 +190,25 @@ export default function AbonnementPage() {
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7f5' }}>
       <p style={{ fontFamily: 'Syne,sans-serif', color: '#1a7a4a', fontWeight: 700 }}>⏳ Chargement...</p>
+    </div>
+  )
+
+  if (!FEATURE_FLAGS.monetization) return (
+    <div style={{ minHeight: '100vh', background: '#f5f7f5' }}>
+      <Header />
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '56px 5%', textAlign: 'center' }}>
+        <div style={{ fontSize: '2.6rem', marginBottom: '14px' }}>🌱</div>
+        <h1 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.5rem', marginBottom: '10px', color: '#111a14' }}>
+          SokoDeal est gratuit
+        </h1>
+        <p style={{ color: '#6b7c6e', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '24px' }}>
+          Les abonnements, boosts et paiements sont temporairement masques pendant la phase de lancement.
+        </p>
+        <button onClick={() => window.location.href='/publier'}
+          style={{ padding: '13px 28px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer' }}>
+          Publier une annonce gratuitement
+        </button>
+      </div>
     </div>
   )
 
