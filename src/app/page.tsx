@@ -346,10 +346,13 @@ export default function Home() {
           .mon-compte-label { display: none !important; }
           .search-bar { display: none !important; }
           .save-search-btn { display: none !important; }
+        }
+        @media (max-width: 900px) {
           .immo-layout { grid-template-columns: 1fr !important; }
-          .immo-map-panel { display: none; }
-          .immo-map-panel.show { display: block !important; }
+          .immo-map-panel { display: none !important; position: static !important; }
+          .immo-map-panel.show { display: flex !important; flex-direction: column; }
           .immo-list-panel.hide { display: none !important; }
+          .map-toggle-btn { display: block !important; }
         }
         .ad-card { transition: transform 0.18s, box-shadow 0.18s; }
         .ad-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; }
@@ -546,12 +549,6 @@ export default function Home() {
               </button>
             )}
 
-            {/* Bouton map mobile */}
-            <button onClick={() => setShowMap(!showMap)}
-              style={{display:'none', padding:'7px 14px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border:'1px solid #e8ede9', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor:'pointer', marginLeft:'auto'}}
-              className="map-toggle-btn">
-              {showMap ? '📋 Liste' : '🗺️ Carte'}
-            </button>
           </div>
         )}
       </header>
@@ -602,132 +599,135 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── MODE IMMO — Layout SeLoger ── */}
+      {/* MODE IMMO - Layout 2 colonnes */}
       {!search.startsWith('@') && activeSection === 'main' && isImmoMode && (
-        <div style={{display:'flex', height:'calc(100vh - 130px)', overflow:'hidden'}}>
+        <div style={{
+          maxWidth: '1300px',
+          margin: '0 auto',
+          padding: '16px 5%',
+          display: 'grid',
+          gridTemplateColumns: '1fr 380px',
+          gap: '20px',
+          alignItems: 'start',
+        }} className="immo-layout">
 
-          {/* Liste immo */}
+          {/* Colonne gauche - liste annonces */}
           <div className={`immo-list-panel ${showMap ? 'hide' : ''}`}
-            style={{width:'420px', minWidth:'420px', overflowY:'auto', background:'#f5f7f5', padding:'16px', display:'flex', flexDirection:'column', gap:'12px'}}>
+            style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+
+            <button onClick={() => setShowMap(!showMap)}
+              className="map-toggle-btn"
+              style={{display:'none', padding:'10px', background: showMap ? '#1a7a4a' : '#f5f7f5', color: showMap ? 'white' : '#111a14', border:'1px solid #e8ede9', borderRadius:'10px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.85rem', cursor:'pointer', marginBottom:'4px'}}>
+              {showMap ? 'Voir la liste' : 'Voir la carte'}
+            </button>
 
             {loading ? (
               <div style={{textAlign:'center', padding:'60px', color:'#6b7c6e'}}>Chargement...</div>
             ) : immoAds.length === 0 ? (
               <div style={{background:'white', borderRadius:'14px', padding:'40px', textAlign:'center', border:'1px solid #e8ede9'}}>
-                <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>🏡</div>
-                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun bien trouvé</h3>
+                <div style={{fontSize:'2.5rem', marginBottom:'12px'}}>Immo</div>
+                <h3 style={{fontFamily:'Syne,sans-serif', fontWeight:800, marginBottom:'8px', color:'#111a14'}}>Aucun bien trouve</h3>
                 <p style={{color:'#6b7c6e', marginBottom:'20px', fontSize:'0.88rem'}}>Modifiez vos filtres</p>
                 <button onClick={resetFilters} style={{padding:'10px 24px', background:'#1a7a4a', color:'white', border:'none', borderRadius:'9px', fontFamily:'Syne,sans-serif', fontWeight:700, cursor:'pointer'}}>
                   Voir tout
                 </button>
               </div>
             ) : immoAds.map((ad: any) => (
-              <div key={ad.id} className="immo-card" onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + generateSlug(ad) }}
-                style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)'}}>
-                {/* Photo */}
-                <div style={{height:'136px', background:'#f5f7f5', overflow:'hidden', position:'relative'}}>
+              <div key={ad.id} className="immo-card"
+                onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + generateSlug(ad) }}
+                style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)', display:'grid', gridTemplateColumns:'140px 1fr'}}>
+
+                <div style={{height:'130px', background:'#f5f7f5', overflow:'hidden', position:'relative', flexShrink:0}}>
                   {ad.images && ad.images.length > 0 ? (
                     <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                   ) : (
-                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3rem', opacity:0.3}}>🏡</div>
+                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.8rem', opacity:0.55}}>Photo</div>
                   )}
-                  {/* Badges */}
-                  <div style={{position:'absolute', top:'10px', left:'10px', display:'flex', gap:'6px'}}>
-                    {FEATURE_FLAGS.boostedListings && ad.is_boosted && <span style={{background:'#f5a623', color:'#111a14', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:800}}>⚡ Mis en avant</span>}
-                    <span style={{background: ad.category === 'immo-vente' ? '#1a7a4a' : ad.category === 'immo-location' ? '#0f5233' : '#6b7c6e', color:'white', padding:'3px 8px', borderRadius:'6px', fontSize:'0.65rem', fontWeight:700}}>
+                  <div style={{position:'absolute', top:'8px', left:'8px', display:'flex', gap:'4px', flexDirection:'column'}}>
+                    {FEATURE_FLAGS.boostedListings && ad.is_boosted && (
+                      <span style={{background:'#f5a623', color:'#111a14', padding:'2px 6px', borderRadius:'5px', fontSize:'0.6rem', fontWeight:800}}>Mis en avant</span>
+                    )}
+                    <span style={{background: ad.category === 'immo-vente' ? '#1a7a4a' : ad.category === 'immo-location' ? '#0f5233' : '#6b7c6e', color:'white', padding:'2px 6px', borderRadius:'5px', fontSize:'0.6rem', fontWeight:700}}>
                       {catLabel[ad.category] || ad.category}
                     </span>
                   </div>
-                  <div style={{position:'absolute', top:'10px', right:'10px'}} onClick={e => e.stopPropagation()}>
-                    <FavoriteButton adId={ad.id} onLogin={() => window.location.href='/auth?mode=login'} />
-                  </div>
                 </div>
 
-                {/* Infos */}
-                <div style={{padding:'11px 12px 12px'}}>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#0f5233', marginBottom:'3px'}}>
-                    {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600, color:'#6b7c6e'}}>RWF{ad.category === 'immo-location' ? '/mois' : ''}</span>
+                <div style={{padding:'12px 14px', display:'flex', flexDirection:'column', justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#0f5233', marginBottom:'3px'}}>
+                      {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e'}}>RWF{ad.category === 'immo-location' ? '/mois' : ''}</span>
+                    </div>
+                    <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem', color:'#111a14', marginBottom:'8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                      {ad.title}
+                    </div>
+                    <div style={{display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'6px'}}>
+                      {ad.surface && <span style={{fontSize:'0.7rem', color:'#6b7c6e'}}>Surface {ad.surface} m2</span>}
+                      {ad.chambres && <span style={{fontSize:'0.7rem', color:'#6b7c6e'}}>{ad.chambres} ch.</span>}
+                      {ad.salles_de_bain && <span style={{fontSize:'0.7rem', color:'#6b7c6e'}}>{ad.salles_de_bain} sdb</span>}
+                      {ad.surface && ad.price && ad.category !== 'immo-location' && (
+                        <span style={{fontSize:'0.7rem', color:'#1a7a4a', fontWeight:600}}>
+                          {Math.round(ad.price / ad.surface).toLocaleString()} RWF/m2
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.84rem', color:'#111a14', marginBottom:'6px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                    {ad.title}
-                  </div>
-
-                  {/* Caractéristiques */}
-                  <div style={{display:'flex', gap:'8px', marginBottom:'6px', flexWrap:'wrap', lineHeight:1.2}}>
-                    {ad.surface && (
-                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
-                        📐 {ad.surface} m²
-                      </span>
-                    )}
-                    {ad.chambres && (
-                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
-                        🛏️ {ad.chambres} ch.
-                      </span>
-                    )}
-                    {ad.salles_de_bain && (
-                      <span style={{fontSize:'0.7rem', color:'#6b7c6e', display:'flex', alignItems:'center', gap:'3px'}}>
-                        🚿 {ad.salles_de_bain} sdb
-                      </span>
-                    )}
-                    {ad.surface && ad.price && ad.category !== 'immo-location' && (
-                      <span style={{fontSize:'0.7rem', color:'#1a7a4a', fontWeight:600}}>
-                        {Math.round(ad.price / ad.surface).toLocaleString()} RWF/m²
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{fontSize:'0.7rem', color:'#6b7c6e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                    📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}
-                    {ad.sector ? ' · ' + ad.sector : ''}
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px'}}>
+                    <span style={{fontSize:'0.7rem', color:'#6b7c6e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                      {ad.province}{ad.district ? ' - ' + ad.district : ''}
+                    </span>
+                    <div onClick={e => e.stopPropagation()}>
+                      <FavoriteButton adId={ad.id} onLogin={() => window.location.href='/auth?mode=login'} />
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Map Mapbox */}
+          {/* Colonne droite - map + espace libre */}
           <div className={`immo-map-panel ${showMap ? 'show' : ''}`}
-            style={{flex:1, position:'relative', background:'#e8ede9'}}>
-            <div ref={mapRef} style={{width:'100%', height:'100%'}} />
+            style={{position:'sticky', top:'140px', display:'flex', flexDirection:'column', gap:'16px'}}>
 
-            {/* Popup annonce sélectionnée */}
+            <div style={{borderRadius:'14px', overflow:'hidden', border:'1px solid #e8ede9', boxShadow:'0 2px 12px rgba(0,0,0,0.08)', aspectRatio:'1 / 1', position:'relative', background:'#e8ede9', minHeight:'320px'}}>
+              <div ref={mapRef} style={{width:'100%', height:'100%'}} />
+
+              {!MAPBOX_TOKEN && (
+                <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'12px', color:'#6b7c6e'}}>
+                  <div style={{fontSize:'1rem', fontWeight:700}}>Carte</div>
+                  <p style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.85rem'}}>Carte non disponible</p>
+                </div>
+              )}
+            </div>
+
             {selectedImmoAd && (
-              <div style={{position:'absolute', bottom:'20px', left:'50%', transform:'translateX(-50%)', background:'white', borderRadius:'12px', padding:'14px 16px', boxShadow:'0 8px 32px rgba(0,0,0,0.15)', display:'flex', gap:'12px', alignItems:'center', minWidth:'300px', maxWidth:'400px', border:'1px solid #e8ede9', zIndex:10}}>
-                <div style={{width:'60px', height:'60px', borderRadius:'8px', overflow:'hidden', flexShrink:0}}>
+              <div style={{background:'white', borderRadius:'12px', padding:'14px 16px', border:'1px solid #e8ede9', boxShadow:'0 4px 16px rgba(0,0,0,0.08)', display:'flex', gap:'12px', alignItems:'center'}}>
+                <div style={{width:'52px', height:'52px', borderRadius:'8px', overflow:'hidden', flexShrink:0}}>
                   {selectedImmoAd.images?.[0] ? (
                     <img src={selectedImmoAd.images[0]} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/>
                   ) : (
-                    <div style={{width:'100%', height:'100%', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem'}}>🏡</div>
+                    <div style={{width:'100%', height:'100%', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.7rem'}}>Photo</div>
                   )}
                 </div>
                 <div style={{flex:1, minWidth:0}}>
-                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.95rem', color:'#0f5233', marginBottom:'2px'}}>
+                  <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'0.88rem', color:'#0f5233', marginBottom:'2px'}}>
                     {Number(selectedImmoAd.price).toLocaleString()} RWF
                   </div>
-                  <div style={{fontSize:'0.8rem', color:'#111a14', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:'3px'}}>
+                  <div style={{fontSize:'0.75rem', color:'#111a14', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                     {selectedImmoAd.title}
                   </div>
-                  <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>📍 {selectedImmoAd.province}</div>
+                  <div style={{fontSize:'0.68rem', color:'#6b7c6e'}}>{selectedImmoAd.province}</div>
                 </div>
-                <div style={{display:'flex', flexDirection:'column', gap:'6px', flexShrink:0}}>
+                <div style={{display:'flex', flexDirection:'column', gap:'5px', flexShrink:0}}>
                   <button onClick={() => window.location.href='/annonce/' + generateSlug(selectedImmoAd)}
-                    style={{padding:'7px 12px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.75rem', color:'white', cursor:'pointer', whiteSpace:'nowrap'}}>
-                    Voir →
+                    style={{padding:'6px 10px', background:'#1a7a4a', border:'none', borderRadius:'7px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.72rem', color:'white', cursor:'pointer'}}>
+                    Voir
                   </button>
                   <button onClick={() => setSelectedImmoAd(null)}
-                    style={{padding:'4px', background:'transparent', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:'0.8rem'}}>
-                    ✕
+                    style={{padding:'4px', background:'transparent', border:'none', color:'#9ca3af', cursor:'pointer', fontSize:'0.75rem', textAlign:'center'}}>
+                    x
                   </button>
                 </div>
-              </div>
-            )}
-
-            {/* Loader map */}
-            {!MAPBOX_TOKEN && (
-              <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'12px', color:'#6b7c6e'}}>
-                <div style={{fontSize:'3rem'}}>🗺️</div>
-                <p style={{fontFamily:'Syne,sans-serif', fontWeight:700}}>Carte non disponible</p>
-                <p style={{fontSize:'0.82rem'}}>Token Mapbox manquant</p>
               </div>
             )}
           </div>
