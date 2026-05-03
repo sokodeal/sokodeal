@@ -61,7 +61,14 @@ export default function ModifierAnnoncePage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth?mode=login'; return }
+      if (!user) {
+        sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+          url: window.location.pathname,
+          state: {}
+        }))
+        window.location.href = '/auth?mode=login'
+        return
+      }
       setUser(user)
 
       const { data: ad } = await supabase.from('ads').select('*').eq('id', id).single()

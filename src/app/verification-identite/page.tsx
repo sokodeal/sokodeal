@@ -18,6 +18,10 @@ export default function VerificationIdentitePage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
+        sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+          url: window.location.pathname,
+          state: {}
+        }))
         window.location.href = '/auth?mode=login'
         return
       }

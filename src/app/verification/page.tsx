@@ -148,6 +148,17 @@ export default function VerificationPage() {
       })
       if (signInError) throw new Error('Compte cree mais connexion automatique echouee. Connectez-vous manuellement.')
 
+      const savedRedirect = sessionStorage.getItem('sokodeal:redirect')
+      if (savedRedirect) {
+        try {
+          const { url } = JSON.parse(savedRedirect)
+          if (url) {
+            window.location.href = url
+            return
+          }
+        } catch {}
+      }
+
       setStep('success')
     } catch (err: any) {
       setError(err.message || 'Erreur. Reessayez.')

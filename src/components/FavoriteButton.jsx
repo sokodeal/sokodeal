@@ -18,7 +18,14 @@ export default function FavoriteButton({ adId, onLogin = () => {}, size = 'md', 
   const handleClick = async (e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!userId) { onLogin?.(); return }
+    if (!userId) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
+      onLogin?.()
+      return
+    }
     setPending(true)
     await toggleFavorite(adId)
     setPending(false)

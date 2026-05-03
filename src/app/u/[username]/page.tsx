@@ -288,6 +288,10 @@ export default function PublicProfile() {
 
   const handleSubmitReview = async () => {
     if (!currentUser) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
       window.location.href = '/auth?mode=login'
       return
     }
@@ -358,6 +362,10 @@ export default function PublicProfile() {
 
   const openReviewForm = () => {
     if (!currentUser) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
       window.location.href = '/auth?mode=login'
       return
     }
@@ -1331,6 +1339,10 @@ export default function PublicProfile() {
                 <>
                   <button className="btn btn-primary" onClick={() => {
                     if (!currentUser) {
+                      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+                        url: window.location.pathname,
+                        state: {}
+                      }))
                       window.location.href = '/auth?mode=login'
                       return
                     }

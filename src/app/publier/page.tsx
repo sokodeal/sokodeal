@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SUBCATEGORIES } from '@/lib/categories'
 import { LAUNCH_CITIES, LAUNCH_MAIN_CATEGORIES, LAUNCH_SUBCATEGORIES } from '@/lib/market-config'
@@ -25,6 +25,7 @@ export default function PublierPage() {
   const [success, setSuccess] = useState(false)
   const [photos, setPhotos] = useState<File[]>([])
   const [draftReady, setDraftReady] = useState(false)
+  const skipNextDraftSaveRef = useRef(false)
   const [form, setForm] = useState({
     title: '', category: '', subcategory: '', price: '', description: '',
     ville: '', district: '',
@@ -51,6 +52,9 @@ export default function PublierPage() {
         setMsg(photoCount > 0
           ? 'Votre brouillon a ete restaure. Veuillez rajouter vos photos pour finaliser l annonce.'
           : 'Votre brouillon a ete restaure.')
+        skipNextDraftSaveRef.current = true
+        // Supprimer immediatement apres restauration : usage unique.
+        window.localStorage.removeItem(PUBLISH_DRAFT_KEY)
       } catch {
         window.localStorage.removeItem(PUBLISH_DRAFT_KEY)
       }
@@ -60,6 +64,10 @@ export default function PublierPage() {
 
   useEffect(() => {
     if (!draftReady || success) return
+    if (skipNextDraftSaveRef.current) {
+      skipNextDraftSaveRef.current = false
+      return
+    }
     const hasDraftContent = Object.values(form).some(value => Boolean(value)) ||
       Object.values(immoForm).some(value => Boolean(value)) ||
       photos.length > 0
@@ -125,7 +133,15 @@ export default function PublierPage() {
     }
     setLoading(true); setMsg('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/auth?mode=login'; return }
+    if (!user) {
+      savePublishDraft()
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
+      window.location.href = '/auth?mode=login'
+      return
+    }
 
     const { data: userData } = await supabase
       .from('users')
@@ -200,7 +216,6 @@ export default function PublierPage() {
 
     const { error } = await supabase.from('ads').insert([adData])
     if (error) { setMsg(error.message); setLoading(false); return }
-    clearPublishDraft()
     setSuccess(true); setLoading(false)
   }
 

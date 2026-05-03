@@ -17,7 +17,14 @@ export default function MessagesPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth?mode=login'; return }
+      if (!user) {
+        sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+          url: window.location.pathname + window.location.search,
+          state: {}
+        }))
+        window.location.href = '/auth?mode=login'
+        return
+      }
       setUser(user)
 
       const convList = await loadConversations(user) || []
@@ -149,7 +156,14 @@ export default function MessagesPage() {
 
   const openConversation = async (conv: any) => {
     const currentUser = user || (await supabase.auth.getUser()).data.user
-    if (!currentUser) { window.location.href = '/auth?mode=login'; return }
+    if (!currentUser) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname + window.location.search,
+        state: {}
+      }))
+      window.location.href = '/auth?mode=login'
+      return
+    }
 
     setActiveConv(conv)
 

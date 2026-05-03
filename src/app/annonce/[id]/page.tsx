@@ -11,7 +11,14 @@ function ReportButton({ adId, userId }: { adId: string, userId?: string }) {
   const [done, setDone] = useState(false)
 
   const handleReport = async () => {
-    if (!userId) { window.location.href = '/auth?mode=login'; return }
+    if (!userId) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
+      window.location.href = '/auth?mode=login'
+      return
+    }
     if (!reason) return
     setSending(true)
     await supabase.from('reports').insert([{ ad_id: adId, reporter_id: userId, reason }])
@@ -106,6 +113,18 @@ export default function AnnonceDetail() {
       const { data: authData } = await supabase.auth.getUser()
       setUser(authData.user)
 
+      // Restaurer message si retour apres connexion, puis supprimer immediatement.
+      const savedRedirect = sessionStorage.getItem('sokodeal:redirect')
+      if (savedRedirect) {
+        try {
+          const { url, state } = JSON.parse(savedRedirect)
+          if (url === window.location.pathname && state?.message) {
+            setMessage(state.message)
+          }
+        } catch {}
+        sessionStorage.removeItem('sokodeal:redirect')
+      }
+
       // Enregistrer la vue sans compter le vendeur lui-meme.
       if (data && authData.user?.id !== data.user_id) {
         void supabase.from('ad_views').insert([{
@@ -129,7 +148,14 @@ export default function AnnonceDetail() {
   // ✅ Contact → redirige directement vers la messagerie
   const handleContact = async () => {
     if (!message.trim()) return
-    if (!user) { window.location.href = '/auth?mode=login'; return }
+    if (!user) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: { message }
+      }))
+      window.location.href = '/auth?mode=login'
+      return
+    }
     setSending(true)
     await supabase.from('messages').insert([{
       ad_id: ad.id,
@@ -423,19 +449,59 @@ export default function AnnonceDetail() {
             </button>
             {!user && (
               <p style={{fontSize:'0.75rem', color:'#6b7c6e', textAlign:'center', marginBottom:'8px'}}>
-                <a href="/auth?mode=login" style={{color:'#1a7a4a', fontWeight:700}}>Connectez-vous</a> pour envoyer un message
+                <a href="/auth?mode=login" onClick={() => {
+                  sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+                    url: window.location.pathname,
+                    state: { message }
+                  }))
+                }} style={{color:'#1a7a4a', fontWeight:700}}>Connectez-vous</a> pour envoyer un message
               </p>
             )}
             {!ad.hide_phone && ad.phone && (
-              <a href={'tel:' + ad.phone} style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#111a14', textDecoration:'none', marginTop:'8px', boxSizing:'border-box', border:'1px solid #e8ede9'}}>
-                📞 {ad.phone}
-              </a>
+              user ? (
+                <a href={'tel:' + ad.phone} style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#f5f7f5', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.88rem', color:'#111a14', textDecoration:'none', marginTop:'8px', boxSizing:'border-box', border:'1px solid #e8ede9'}}>
+                  Tel {ad.phone}
+                </a>
+              ) : (
+                <div style={{position:'relative', marginTop:'8px'}}>
+                  <div style={{filter:'blur(5px)', userSelect:'none', padding:'11px', background:'#f5f7f5', borderRadius:'9px', border:'1px solid #e8ede9', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', textAlign:'center'}}>
+                    Tel +250 7XX XXX XXX
+                  </div>
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+                        url: window.location.pathname,
+                        state: { message }
+                      }))
+                      window.location.href = '/auth?mode=login'
+                    }}
+                    style={{position:'absolute', inset:0, width:'100%', background:'rgba(255,255,255,0.85)', border:'1px solid #e8ede9', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.78rem', color:'#1a7a4a'}}
+                  >
+                    Se connecter pour voir
+                  </button>
+                </div>
+              )
             )}
             {!ad.hide_phone && (ad.whatsapp || ad.phone) && (
-              <a href={'https://wa.me/' + waPhone + '?text=' + waText} target="_blank" rel="noopener noreferrer"
-                style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'white', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'}}>
-                💬 WhatsApp
-              </a>
+              user ? (
+                <a href={'https://wa.me/' + waPhone + '?text=' + waText} target="_blank" rel="noopener noreferrer"
+                  style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'white', textDecoration:'none', marginTop:'8px', boxSizing:'border-box'}}>
+                  WhatsApp
+                </a>
+              ) : (
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+                      url: window.location.pathname,
+                      state: { message }
+                    }))
+                    window.location.href = '/auth?mode=login'
+                  }}
+                  style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', width:'100%', padding:'11px', background:'#25D366', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:'0.88rem', color:'white', border:'none', cursor:'pointer', marginTop:'8px', boxSizing:'border-box', opacity:0.7}}
+                >
+                  Se connecter pour WhatsApp
+                </button>
+              )
             )}
           </div>
 

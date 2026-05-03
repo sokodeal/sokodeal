@@ -17,9 +17,23 @@ export default function AuthPage() {
 
     // Si déjà connecté → rediriger
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) window.location.href = '/'
+      if (data.user) redirectAfterLogin()
     })
   }, [])
+
+  const redirectAfterLogin = () => {
+    const savedRedirect = sessionStorage.getItem('sokodeal:redirect')
+    if (savedRedirect) {
+      try {
+        const { url } = JSON.parse(savedRedirect)
+        if (url) {
+          window.location.href = url
+          return
+        }
+      } catch {}
+    }
+    window.location.href = '/'
+  }
 
   const handleLogin = async () => {
     setError('')
@@ -28,7 +42,7 @@ export default function AuthPage() {
     setLoading(true)
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
     if (authError) { setError('Email ou mot de passe incorrect.'); setLoading(false); return }
-    window.location.href = '/'
+    redirectAfterLogin()
   }
 
   return (

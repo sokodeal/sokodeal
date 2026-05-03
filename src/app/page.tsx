@@ -221,7 +221,14 @@ export default function Home() {
   }
 
   const handleSaveSearch = async () => {
-    if (!user) { window.location.href = '/auth?mode=login'; return }
+    if (!user) {
+      sessionStorage.setItem('sokodeal:redirect', JSON.stringify({
+        url: window.location.pathname,
+        state: {}
+      }))
+      window.location.href = '/auth?mode=login'
+      return
+    }
     if (!search && !filterCat && !filterVille && !filterPriceMin && !filterPriceMax) return
     const { error } = await supabase.from('saved_searches').insert([{
       user_id: user.id, query: search || null, category: filterCat || null,
