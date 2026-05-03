@@ -126,24 +126,42 @@ export default function ModifierAnnoncePage() {
         console.error('Upload error:', JSON.stringify(error))
         setMsg('Erreur upload : ' + error.message)
       }
+    } catch (err: any) {
+      console.error('Upload catch:', err)
+      setMsg('Erreur upload : ' + (err.message || 'Erreur inconnue'))
     } finally {
       setUploadingImg(false)
     }
     return null
   }
 
-  const urlToFile = async (url: string, filename: string): Promise<File> => {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    return new File([blob], filename, { type: blob.type || 'image/jpeg' })
+  const urlToFile = (url: string): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('Canvas error')); return }
+        ctx.drawImage(img, 0, 0)
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('Blob error')); return }
+          const filename = url.split('/').pop() || 'photo.jpg'
+          resolve(new File([blob], filename, { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.95)
+      }
+      img.onerror = () => reject(new Error('Image load error'))
+      img.src = url
+    })
   }
 
   const handleRecropExisting = async (url: string) => {
     setRecropUrl(url)
     setConvertingRecrop(true)
     try {
-      const filename = url.split('/').pop() || 'photo.jpg'
-      const file = await urlToFile(url, filename)
+      const file = await urlToFile(url)
       setRecropFile(file)
     } catch (e) {
       console.error('Recrop conversion error:', e)
@@ -199,36 +217,48 @@ export default function ModifierAnnoncePage() {
 
   const handleSave = async () => {
     if (!form.title || !form.price || !form.category) {
-      setMsg('❌ Titre, prix et catégorie sont obligatoires')
+      setMsg('\u274c Titre, prix et cat\u00e9gorie sont obligatoires')
       return
     }
     setSaving(true)
+    setMsg('')
 
-    const fullPhone = form.phone ? form.phone_indicatif + ' ' + form.phone : ''
-    const fullWhatsapp = form.whatsapp_same
-      ? fullPhone
-      : (form.whatsapp ? form.whatsapp_indicatif + ' ' + form.whatsapp : '')
+    try {
+      const fullPhone = form.phone ? form.phone_indicatif + ' ' + form.phone : ''
+      const fullWhatsapp = form.whatsapp_same
+        ? fullPhone
+        : (form.whatsapp ? form.whatsapp_indicatif + ' ' + form.whatsapp : '')
 
-    const { error } = await supabase
-      .from('ads')
-      .update({
-        title: form.title,
-        description: form.description,
-        price: parseInt(form.price),
-        category: form.category,
-        province: form.province,
-        phone: fullPhone,
-        whatsapp: fullWhatsapp,
-        hide_phone: form.hide_phone,
-        images: images,
-      })
-      .eq('id', id)
-      .eq('user_id', user.id)
+      const { error } = await supabase
+        .from('ads')
+        .update({
+          title: form.title,
+          description: form.description,
+          price: parseInt(form.price),
+          category: form.category,
+          province: form.province,
+          phone: fullPhone,
+          whatsapp: fullWhatsapp,
+          hide_phone: form.hide_phone,
+          images: images,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
 
-    setSaving(false)
-    if (error) { setMsg('❌ ' + error.message); return }
-    setMsg('✅ Annonce mise à jour !')
-    setTimeout(() => window.location.href = '/profil', 1500)
+      if (error) {
+        console.error('Save error:', error)
+        setMsg('\u274c ' + error.message)
+        return
+      }
+
+      setMsg('\u2705 Annonce mise \u00e0 jour !')
+      setTimeout(() => window.location.href = '/profil', 1500)
+    } catch (err: any) {
+      console.error('Save catch:', err)
+      setMsg('\u274c ' + (err.message || 'Erreur inconnue'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) return (
@@ -252,17 +282,23 @@ export default function ModifierAnnoncePage() {
           file={recropFile}
           aspect={4 / 3}
           onConfirm={async (croppedFile) => {
-            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${croppedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-            const { data, error } = await supabase.storage.from('annonces').upload(fileName, croppedFile)
-            if (!error && data) {
-              const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
-              setImages(prev => prev.map(u => u === recropUrl ? urlData.publicUrl : u))
-            } else if (error) {
-              console.error('Upload error:', JSON.stringify(error))
-              setMsg('Erreur recadrage : ' + error.message)
+            try {
+              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${croppedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+              const { data, error } = await supabase.storage.from('annonces').upload(fileName, croppedFile)
+              if (!error && data) {
+                const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
+                setImages(prev => prev.map(u => u === recropUrl ? urlData.publicUrl : u))
+              } else if (error) {
+                console.error('Upload error:', JSON.stringify(error))
+                setMsg('Erreur recadrage : ' + error.message)
+              }
+            } catch (err: any) {
+              console.error('Upload catch:', err)
+              setMsg('Erreur recadrage : ' + (err.message || 'Erreur inconnue'))
+            } finally {
+              setRecropFile(null)
+              setRecropUrl(null)
             }
-            setRecropFile(null)
-            setRecropUrl(null)
           }}
           onCancel={() => { setRecropFile(null); setRecropUrl(null) }}
         />
