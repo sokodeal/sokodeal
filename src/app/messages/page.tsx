@@ -87,6 +87,17 @@ export default function MessagesPage() {
           setMessages(prev => [...prev, m])
         }
       }
+    }).on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages',
+      filter: `sender_id=eq.${user.id}`
+    }, (payload) => {
+      setMessages(prev => prev.map((m: any) =>
+        m.id === payload.new.id
+          ? { ...m, is_read: payload.new.is_read, read_at: payload.new.read_at }
+          : m
+      ))
     }).subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [user, activeConv])
@@ -199,7 +210,7 @@ export default function MessagesPage() {
     if (!activeConv) return
     await markConversationAsRead(messages)
     setMessages(prev => prev.map((m: any) =>
-      m.receiver_id === userId ? { ...m, is_read: true } : m
+      m.receiver_id === userId ? { ...m, is_read: true, read_at: m.read_at || new Date().toISOString() } : m
     ))
     setConversations(prev => prev.map(c =>
       sameConversation(c, activeConv) ? { ...c, unread: 0 } : c
@@ -258,6 +269,13 @@ export default function MessagesPage() {
 
   function notifyMessagesRead() {
     window.dispatchEvent(new Event('sokodeal:messages-read'))
+  }
+
+  function getLastReadOwnMessageId() {
+    const lastReadOwnMessage = [...messages]
+      .reverse()
+      .find((m: any) => m.sender_id === user?.id && m.read_at)
+    return lastReadOwnMessage?.id || null
   }
 
   async function markConversationAsRead(conversationMessages: any[]) {
@@ -394,9 +412,10 @@ export default function MessagesPage() {
                   )}
                   {messages.map((msg, i) => {
                     const isMe = msg.sender_id === user.id
+                    const showSeen = isMe && msg.id === getLastReadOwnMessageId()
                     const parts = extractLink(msg.content)
                     return (
-                      <div key={i} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                         <div style={{
                           maxWidth: '72%', padding: '10px 14px',
                           borderRadius: isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
@@ -418,6 +437,11 @@ export default function MessagesPage() {
                             {formatTime(msg.created_at)} {isMe && (msg.is_read ? '✓✓' : '✓')}
                           </div>
                         </div>
+                        {showSeen && (
+                          <div style={{fontSize:'0.65rem', color:'#9ca3af', textAlign:'right', marginTop:'2px', paddingRight:'4px'}}>
+                            Vu à {new Date(msg.read_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
                       </div>
                     )
                   })}

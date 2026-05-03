@@ -27,12 +27,23 @@ export async function POST(req: NextRequest) {
     }
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
+    const { data: userData } = await serviceClient
+      .from('users')
+      .select('hide_read_receipts')
+      .eq('id', user.id)
+      .single()
+
+    const updatePayload = userData?.hide_read_receipts
+      ? { is_read: true }
+      : { is_read: true, read_at: new Date().toISOString() }
+
     const { data, error } = await serviceClient
       .from('messages')
-      .update({ is_read: true })
+      .update(updatePayload)
       .eq('receiver_id', user.id)
+      .is('read_at', null)
       .in('id', message_ids)
-      .select('id')
+      .select('id, read_at')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

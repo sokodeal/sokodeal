@@ -455,6 +455,7 @@ export default function ProfilPage() {
   const [favLoading, setFavLoading] = useState(false)
   const [logoutLoading, setLogoutLoading] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const [hideReadReceipts, setHideReadReceipts] = useState(false)
 
   const { favorites } = useFavorites()
 
@@ -483,6 +484,7 @@ export default function ProfilPage() {
         location: user.user_metadata?.location || '',
         username: userData?.username || '',
       })
+      setHideReadReceipts(!!userData?.hide_read_receipts)
 
       const { data } = await supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       if (data) setAds(data)
@@ -948,6 +950,28 @@ export default function ProfilPage() {
               <button onClick={handleLogout} disabled={logoutLoading} style={{padding:'9px 20px', background: logoutLoading ? '#f5f7f5' : '#fff1f0', border:'1px solid #ffd6d6', borderRadius:'8px', color: logoutLoading ? '#6b7c6e' : '#c0392b', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.82rem', cursor: logoutLoading ? 'not-allowed' : 'pointer'}}>
                 {logoutLoading ? 'Deconnexion...' : 'Se deconnecter'}
               </button>
+              <div style={{marginTop:'16px', paddingTop:'16px', borderTop:'1px solid #e8ede9'}}>
+                <label style={{display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', gap:'16px'}}>
+                  <div>
+                    <div style={{fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'0.85rem', color:'#111a14'}}>
+                      Accusés de lecture
+                    </div>
+                    <div style={{fontSize:'0.72rem', color:'#6b7c6e', marginTop:'2px'}}>
+                      Afficher "Vu" quand vous lisez un message
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!hideReadReceipts}
+                    onChange={async (e) => {
+                      const hide = !e.target.checked
+                      setHideReadReceipts(hide)
+                      await supabase.from('users').update({ hide_read_receipts: hide }).eq('id', user.id)
+                    }}
+                    style={{width:'18px', height:'18px', accentColor:'#1a7a4a', cursor:'pointer'}}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         )}
