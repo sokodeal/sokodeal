@@ -74,7 +74,8 @@ export default function AnnonceDetail() {
   const [loading, setLoading] = useState(true)
   const [activePhoto, setActivePhoto] = useState(0)
   const [msgSent, setMsgSent] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState('Bonjour, je suis interesse par cette annonce.')
+  const [messageTouched, setMessageTouched] = useState(false)
   const [sending, setSending] = useState(false)
   const [shared, setShared] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
@@ -120,6 +121,7 @@ export default function AnnonceDetail() {
           const { url, state } = JSON.parse(savedRedirect)
           if (url === window.location.pathname && state?.message) {
             setMessage(state.message)
+            setMessageTouched(true)
           }
         } catch {}
         sessionStorage.removeItem('sokodeal:redirect')
@@ -433,10 +435,10 @@ export default function AnnonceDetail() {
             )}
             <textarea
               value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Bonjour, je suis interesse par cette annonce..."
+              onChange={e => { setMessage(e.target.value); setMessageTouched(true) }}
+              onFocus={() => setMessageTouched(true)}
               rows={4}
-              style={{width:'100%', padding:'11px 13px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#fafaf9', marginBottom:'10px', boxSizing:'border-box', color:'#111a14'}}
+              style={{width:'100%', padding:'11px 13px', border:'1px solid #e8ede9', borderRadius:'9px', fontFamily:'DM Sans,sans-serif', fontSize:'0.88rem', outline:'none', resize:'vertical', background:'#fafaf9', marginBottom:'10px', boxSizing:'border-box', color: messageTouched ? '#111a14' : '#9ca3af', cursor:'text'}}
             />
             <button onClick={handleContact} disabled={sending || !message.trim()} style={{
               width:'100%', padding:'12px',
