@@ -27,6 +27,8 @@ export default function ModifierAnnoncePage() {
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [cropIndex, setCropIndex] = useState(0)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [newPhotoFiles, setNewPhotoFiles] = useState<Map<string, File>>(new Map())
+  const [recropUrl, setRecropUrl] = useState<string | null>(null)
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -112,16 +114,21 @@ export default function ModifierAnnoncePage() {
   const uploadImageFile = async (file: File) => {
     setUploadingImg(true)
     try {
-      const ext = file.name.split('.').pop()
-      const path = `ads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from('ads-images').upload(path, file)
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('ads-images').getPublicUrl(path)
-        setImages(prev => [...prev, urlData.publicUrl].slice(0, 5))
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+      const { data, error } = await supabase.storage.from('annonces').upload(fileName, file)
+      if (!error && data) {
+        const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
+        const newUrl = urlData.publicUrl
+        setImages(prev => [...prev, newUrl].slice(0, 5))
+        setNewPhotoFiles(prev => new Map(prev).set(newUrl, file))
+        return newUrl
+      } else if (error) {
+        setMsg('Erreur upload : ' + error.message)
       }
     } finally {
       setUploadingImg(false)
     }
+    return null
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,6 +152,7 @@ export default function ModifierAnnoncePage() {
 
   const handleCropConfirm = async (croppedFile: File) => {
     await uploadImageFile(croppedFile)
+
     const nextIndex = cropIndex + 1
     if (nextIndex < pendingFiles.length && images.length + nextIndex < 5) {
       setCropIndex(nextIndex)
@@ -216,6 +224,36 @@ export default function ModifierAnnoncePage() {
           onCancel={handleCropCancel}
         />
       )}
+      {recropUrl && newPhotoFiles.get(recropUrl) && (
+        <ImageCropModal
+          file={newPhotoFiles.get(recropUrl)!}
+          aspect={4 / 3}
+          onConfirm={async (croppedFile) => {
+            setUploadingImg(true)
+            try {
+              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${croppedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+              const { data, error } = await supabase.storage.from('annonces').upload(fileName, croppedFile)
+              if (!error && data) {
+                const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
+                const newUrl = urlData.publicUrl
+                setImages(prev => prev.map(u => u === recropUrl ? newUrl : u))
+                setNewPhotoFiles(prev => {
+                  const m = new Map(prev)
+                  m.delete(recropUrl)
+                  m.set(newUrl, croppedFile)
+                  return m
+                })
+              } else if (error) {
+                setMsg('Erreur upload : ' + error.message)
+              }
+            } finally {
+              setUploadingImg(false)
+              setRecropUrl(null)
+            }
+          }}
+          onCancel={() => setRecropUrl(null)}
+        />
+      )}
 
       {/* HEADER */}
       <header style={{background:'white', borderBottom:'1px solid #e8ede9', position:'sticky', top:0, zIndex:100}}>
@@ -248,13 +286,39 @@ export default function ModifierAnnoncePage() {
         <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'14px'}}>
           <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>📷 Photos ({images.length}/5)</h2>
           <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
-            {images.map((img, i) => (
-              <div key={i} style={{position:'relative', width:'90px', height:'90px'}}>
-                <img src={img} style={{width:'90px', height:'90px', objectFit:'cover', borderRadius:'10px', border:'1px solid #e8ede9'}} />
-                {i === 0 && <span style={{position:'absolute', bottom:'4px', left:'4px', background:'#1a7a4a', color:'white', fontSize:'0.55rem', fontWeight:700, padding:'2px 5px', borderRadius:'4px'}}>Principale</span>}
-                <button onClick={() => removeImage(i)} style={{position:'absolute', top:'-6px', right:'-6px', background:'#e63946', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}>×</button>
-              </div>
-            ))}
+            {images.map((img, i) => {
+              const isNew = newPhotoFiles.has(img)
+              return (
+                <div key={i} style={{position:'relative', width:'90px', height:'90px'}}>
+                  <img src={img} style={{width:'90px', height:'90px', objectFit:'cover', borderRadius:'10px', border: i === 0 ? '2px solid #1a7a4a' : '1px solid #e8ede9'}} />
+                  {i === 0 && (
+                    <span style={{position:'absolute', bottom:'4px', left:'4px', background:'#1a7a4a', color:'white', fontSize:'0.55rem', fontWeight:700, padding:'2px 5px', borderRadius:'4px'}}>
+                      Principale
+                    </span>
+                  )}
+                  {isNew && (
+                    <button
+                      onClick={() => setRecropUrl(img)}
+                      style={{position:'absolute', top:'-6px', left:'-6px', background:'#f5a623', color:'#111a14', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
+                      title="Recadrer"
+                    >{'\u2702'}</button>
+                  )}
+                  <button
+                    onClick={() => {
+                      removeImage(i)
+                      if (isNew) {
+                        setNewPhotoFiles(prev => {
+                          const m = new Map(prev)
+                          m.delete(img)
+                          return m
+                        })
+                      }
+                    }}
+                    style={{position:'absolute', top:'-6px', right:'-6px', background:'#e63946', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
+                  >{'\u00d7'}</button>
+                </div>
+              )
+            })}
             {images.length < 5 && (
               <label style={{width:'90px', height:'90px', border:'2px dashed #e8ede9', borderRadius:'10px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', background:'#fafaf9', gap:'4px'}}>
                 <span style={{fontSize:'1.4rem'}}>+</span>

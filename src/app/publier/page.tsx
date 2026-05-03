@@ -28,6 +28,7 @@ export default function PublierPage() {
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [cropIndex, setCropIndex] = useState(0)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [recropIndex, setRecropIndex] = useState<number | null>(null)
   const [draftReady, setDraftReady] = useState(false)
   const skipNextDraftSaveRef = useRef(false)
   const [form, setForm] = useState({
@@ -205,7 +206,7 @@ export default function PublierPage() {
 
     const imageUrls: string[] = []
     for (const photo of photos.slice(0, MAX_PHOTOS)) {
-      const fileName = `${Date.now()}-${photo.name}`
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${photo.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       const { data, error } = await supabase.storage.from('annonces').upload(fileName, photo)
       if (!error && data) {
         const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
@@ -295,6 +296,19 @@ export default function PublierPage() {
           aspect={4 / 3}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
+        />
+      )}
+      {recropIndex !== null && photos[recropIndex] && (
+        <ImageCropModal
+          file={photos[recropIndex]}
+          aspect={4 / 3}
+          onConfirm={(croppedFile) => {
+            const newPhotos = [...photos]
+            newPhotos[recropIndex] = croppedFile
+            setPhotos(newPhotos)
+            setRecropIndex(null)
+          }}
+          onCancel={() => setRecropIndex(null)}
         />
       )}
       <div style={{background:'white', borderRadius:'16px', padding:'28px', maxWidth:'540px', width:'100%', border:'1px solid #e8ede9', boxShadow:'0 4px 24px rgba(0,0,0,0.06)'}}>
@@ -518,14 +532,17 @@ export default function PublierPage() {
               <p style={{fontSize:'0.75rem', color:'#6b7c6e', marginBottom:'8px'}}>Cliquez sur une photo pour la mettre en première position</p>
               <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
                 {photos.map((photo, i) => (
-                  <div key={i} style={{position:'relative', cursor:'pointer'}} onClick={() => {
-                    if (i === 0) return
-                    const newPhotos = [...photos]
-                    const [selected] = newPhotos.splice(i, 1)
-                    newPhotos.unshift(selected)
-                    setPhotos(newPhotos)
-                  }}>
-                    <img src={URL.createObjectURL(photo)} alt=""
+                  <div key={i} style={{position:'relative', cursor:'pointer'}}>
+                    <img
+                      src={URL.createObjectURL(photo)}
+                      alt=""
+                      onClick={() => {
+                        if (i === 0) return
+                        const newPhotos = [...photos]
+                        const [selected] = newPhotos.splice(i, 1)
+                        newPhotos.unshift(selected)
+                        setPhotos(newPhotos)
+                      }}
                       style={{width:'76px', height:'76px', objectFit:'cover', borderRadius:'9px', border: i === 0 ? '2.5px solid #1a7a4a' : '2px solid #e8ede9'}}
                     />
                     {i === 0 && (
@@ -533,10 +550,15 @@ export default function PublierPage() {
                         PRINCIPALE
                       </div>
                     )}
-                    <button onClick={ev => { ev.stopPropagation(); setPhotos(photos.filter((_,j) => j !== i)); setMsg('') }}
-                      style={{position:'absolute', top:'-5px', right:'-5px', width:'18px', height:'18px', background:'#e74c3c', color:'white', border:'none', borderRadius:'50%', fontSize:'0.65rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800}}>
-                      ×
-                    </button>
+                    <button
+                      onClick={ev => { ev.stopPropagation(); setRecropIndex(i) }}
+                      style={{position:'absolute', top:'-5px', left:'-5px', width:'18px', height:'18px', background:'#f5a623', color:'#111a14', border:'none', borderRadius:'50%', fontSize:'0.65rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800}}
+                      title="Recadrer"
+                    >{'\u2702'}</button>
+                    <button
+                      onClick={ev => { ev.stopPropagation(); setPhotos(photos.filter((_,j) => j !== i)); setMsg('') }}
+                      style={{position:'absolute', top:'-5px', right:'-5px', width:'18px', height:'18px', background:'#e74c3c', color:'white', border:'none', borderRadius:'50%', fontSize:'0.65rem', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800}}
+                    >{'\u00d7'}</button>
                   </div>
                 ))}
               </div>
