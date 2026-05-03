@@ -27,8 +27,9 @@ export default function ModifierAnnoncePage() {
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [cropIndex, setCropIndex] = useState(0)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [newPhotoFiles, setNewPhotoFiles] = useState<Map<string, File>>(new Map())
   const [recropUrl, setRecropUrl] = useState<string | null>(null)
+  const [recropFile, setRecropFile] = useState<File | null>(null)
+  const [convertingRecrop, setConvertingRecrop] = useState(false)
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -120,15 +121,37 @@ export default function ModifierAnnoncePage() {
         const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
         const newUrl = urlData.publicUrl
         setImages(prev => [...prev, newUrl].slice(0, 5))
-        setNewPhotoFiles(prev => new Map(prev).set(newUrl, file))
         return newUrl
       } else if (error) {
+        console.error('Upload error:', JSON.stringify(error))
         setMsg('Erreur upload : ' + error.message)
       }
     } finally {
       setUploadingImg(false)
     }
     return null
+  }
+
+  const urlToFile = async (url: string, filename: string): Promise<File> => {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return new File([blob], filename, { type: blob.type || 'image/jpeg' })
+  }
+
+  const handleRecropExisting = async (url: string) => {
+    setRecropUrl(url)
+    setConvertingRecrop(true)
+    try {
+      const filename = url.split('/').pop() || 'photo.jpg'
+      const file = await urlToFile(url, filename)
+      setRecropFile(file)
+    } catch (e) {
+      console.error('Recrop conversion error:', e)
+      setMsg('Impossible de recadrer cette photo.')
+      setRecropUrl(null)
+    } finally {
+      setConvertingRecrop(false)
+    }
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,34 +247,24 @@ export default function ModifierAnnoncePage() {
           onCancel={handleCropCancel}
         />
       )}
-      {recropUrl && newPhotoFiles.get(recropUrl) && (
+      {recropFile && recropUrl && (
         <ImageCropModal
-          file={newPhotoFiles.get(recropUrl)!}
+          file={recropFile}
           aspect={4 / 3}
           onConfirm={async (croppedFile) => {
-            setUploadingImg(true)
-            try {
-              const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${croppedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-              const { data, error } = await supabase.storage.from('annonces').upload(fileName, croppedFile)
-              if (!error && data) {
-                const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
-                const newUrl = urlData.publicUrl
-                setImages(prev => prev.map(u => u === recropUrl ? newUrl : u))
-                setNewPhotoFiles(prev => {
-                  const m = new Map(prev)
-                  m.delete(recropUrl)
-                  m.set(newUrl, croppedFile)
-                  return m
-                })
-              } else if (error) {
-                setMsg('Erreur upload : ' + error.message)
-              }
-            } finally {
-              setUploadingImg(false)
-              setRecropUrl(null)
+            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${croppedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+            const { data, error } = await supabase.storage.from('annonces').upload(fileName, croppedFile)
+            if (!error && data) {
+              const { data: urlData } = supabase.storage.from('annonces').getPublicUrl(fileName)
+              setImages(prev => prev.map(u => u === recropUrl ? urlData.publicUrl : u))
+            } else if (error) {
+              console.error('Upload error:', JSON.stringify(error))
+              setMsg('Erreur recadrage : ' + error.message)
             }
+            setRecropFile(null)
+            setRecropUrl(null)
           }}
-          onCancel={() => setRecropUrl(null)}
+          onCancel={() => { setRecropFile(null); setRecropUrl(null) }}
         />
       )}
 
@@ -286,39 +299,26 @@ export default function ModifierAnnoncePage() {
         <div style={{background:'white', borderRadius:'14px', padding:'20px', border:'1px solid #e8ede9', marginBottom:'14px'}}>
           <h2 style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.95rem', marginBottom:'14px', color:'#111a14'}}>📷 Photos ({images.length}/5)</h2>
           <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
-            {images.map((img, i) => {
-              const isNew = newPhotoFiles.has(img)
-              return (
-                <div key={i} style={{position:'relative', width:'90px', height:'90px'}}>
-                  <img src={img} style={{width:'90px', height:'90px', objectFit:'cover', borderRadius:'10px', border: i === 0 ? '2px solid #1a7a4a' : '1px solid #e8ede9'}} />
-                  {i === 0 && (
-                    <span style={{position:'absolute', bottom:'4px', left:'4px', background:'#1a7a4a', color:'white', fontSize:'0.55rem', fontWeight:700, padding:'2px 5px', borderRadius:'4px'}}>
-                      Principale
-                    </span>
-                  )}
-                  {isNew && (
-                    <button
-                      onClick={() => setRecropUrl(img)}
-                      style={{position:'absolute', top:'-6px', left:'-6px', background:'#f5a623', color:'#111a14', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
-                      title="Recadrer"
-                    >{'\u2702'}</button>
-                  )}
-                  <button
-                    onClick={() => {
-                      removeImage(i)
-                      if (isNew) {
-                        setNewPhotoFiles(prev => {
-                          const m = new Map(prev)
-                          m.delete(img)
-                          return m
-                        })
-                      }
-                    }}
-                    style={{position:'absolute', top:'-6px', right:'-6px', background:'#e63946', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
-                  >{'\u00d7'}</button>
-                </div>
-              )
-            })}
+            {images.map((img, i) => (
+              <div key={i} style={{position:'relative', width:'90px', height:'90px'}}>
+                <img src={img} style={{width:'90px', height:'90px', objectFit:'cover', borderRadius:'10px', border: i === 0 ? '2px solid #1a7a4a' : '1px solid #e8ede9'}} />
+                {i === 0 && (
+                  <span style={{position:'absolute', bottom:'4px', left:'4px', background:'#1a7a4a', color:'white', fontSize:'0.55rem', fontWeight:700, padding:'2px 5px', borderRadius:'4px'}}>
+                    Principale
+                  </span>
+                )}
+                <button
+                  onClick={() => handleRecropExisting(img)}
+                  disabled={convertingRecrop}
+                  style={{position:'absolute', top:'-6px', left:'-6px', background:'#f5a623', color:'#111a14', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor: convertingRecrop ? 'not-allowed' : 'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
+                  title="Recadrer"
+                >{convertingRecrop && recropUrl === img ? '\u23f3' : '\u2702'}</button>
+                <button
+                  onClick={() => removeImage(i)}
+                  style={{position:'absolute', top:'-6px', right:'-6px', background:'#e63946', color:'white', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'0.7rem', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center'}}
+                >{'\u00d7'}</button>
+              </div>
+            ))}
             {images.length < 5 && (
               <label style={{width:'90px', height:'90px', border:'2px dashed #e8ede9', borderRadius:'10px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', background:'#fafaf9', gap:'4px'}}>
                 <span style={{fontSize:'1.4rem'}}>+</span>
