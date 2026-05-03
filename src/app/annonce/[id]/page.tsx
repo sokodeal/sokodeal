@@ -110,14 +110,33 @@ export default function AnnonceDetail() {
           return
         }
       } else {
-        const shortId = extractIdFromSlug(rawId)
-        const { data: slugData } = await supabase
+        const parts = rawId.split('-')
+        const shortId = parts[parts.length - 1] || extractIdFromSlug(rawId)
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('rawId:', rawId)
+          console.log('shortId:', shortId)
+        }
+
+        const { data: slugData, error: slugError } = await supabase
           .from('ads')
           .select('*')
           .ilike('id', shortId + '%')
-          .maybeSingle()
+          .limit(1)
+          .single()
 
-        data = slugData
+        if (!slugError && slugData) {
+          data = slugData
+        } else {
+          const { data: fallbackData } = await supabase
+            .from('ads')
+            .select('*')
+            .limit(1000)
+
+          data = fallbackData?.find((item: any) =>
+            String(item.id || '').replace(/-/g, '').startsWith(shortId)
+          ) || null
+        }
       }
 
       if (data) {
