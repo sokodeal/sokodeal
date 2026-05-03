@@ -142,6 +142,12 @@ export default function VerificationPage() {
       })
       if (profileError) throw profileError
 
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      })
+      if (signInError) throw new Error('Compte cree mais connexion automatique echouee. Connectez-vous manuellement.')
+
       setStep('success')
     } catch (err: any) {
       setError(err.message || 'Erreur. Reessayez.')
@@ -350,7 +356,7 @@ export default function VerificationPage() {
               <div style={{ width: '72px', height: '72px', background: '#e8f5ee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 800, color: '#1a7a4a', margin: '0 auto 16px' }}>OK</div>
               <h2 style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '1.3rem', marginBottom: '8px', color: '#111a14' }}>Bienvenue sur SokoDeal !</h2>
               <p style={{ color: '#6b7c6e', marginBottom: '24px', fontSize: '0.88rem', lineHeight: 1.6 }}>
-                Votre compte est cree. La verification d'identite sera demandee au moment de votre premiere publication.
+                Votre compte est cree et actif. Vous etes connecte !
               </p>
               <button onClick={() => window.location.href = '/publier'}
                 style={{ width: '100%', padding: '13px', background: '#1a7a4a', border: 'none', borderRadius: '10px', fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'white', cursor: 'pointer', marginBottom: '10px' }}>
