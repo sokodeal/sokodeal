@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { generateSlug } from '@/lib/slug'
 
 const ADMIN_EMAIL = 'nmommozine@gmail.com' // ← mets ton email ici
 
@@ -266,7 +267,7 @@ export default function AdminPage() {
                           <button onClick={() => handleToggleAd(ad.id, ad.is_active)} style={{padding:'4px 8px', background: ad.is_active ? '#fff8e7' : '#e8f5ee', color: ad.is_active ? '#7a5c00' : '#1a7a4a', border:'none', borderRadius:'6px', fontSize:'0.7rem', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap'}}>
                             {ad.is_active ? '⏸' : '▶'}
                           </button>
-                          <button onClick={() => window.open('/annonce/' + ad.id, '_blank')} style={{padding:'4px 8px', background:'#e8f5ee', color:'#1a7a4a', border:'none', borderRadius:'6px', fontSize:'0.7rem', fontWeight:700, cursor:'pointer'}}>
+                          <button onClick={() => window.open('/annonce/' + generateSlug(ad), '_blank')} style={{padding:'4px 8px', background:'#e8f5ee', color:'#1a7a4a', border:'none', borderRadius:'6px', fontSize:'0.7rem', fontWeight:700, cursor:'pointer'}}>
                             👁
                           </button>
                           <button onClick={() => handleDeleteAd(ad.id)} style={{padding:'4px 8px', background:'#fce4ec', color:'#c0392b', border:'none', borderRadius:'6px', fontSize:'0.7rem', fontWeight:700, cursor:'pointer'}}>

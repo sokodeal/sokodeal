@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import FavoriteButton from '@/components/FavoriteButton'
 import { supabase } from '@/lib/supabase'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
+import { generateSlug } from '@/lib/slug'
 
 const catLabel: Record<string, string> = {
   'immo-vente': 'Immo',
@@ -1417,7 +1418,7 @@ export default function PublicProfile() {
           {bestAds.length > 0 && (
             <div className="feature-strip">
               {bestAds.map((ad: any) => (
-                <div key={ad.id} className="feature-card" onClick={() => window.location.href = '/annonce/' + ad.id}>
+                <div key={ad.id} className="feature-card" onClick={() => window.location.href = '/annonce/' + generateSlug(ad)}>
                   {ad.images?.[0] ? (
                     <img src={ad.images[0]} alt={ad.title} />
                   ) : (
@@ -1459,7 +1460,7 @@ export default function PublicProfile() {
           ) : (
             <div className="ads-grid">
               {ads.map((ad: any) => (
-                <article key={ad.id} className="ad-card" onClick={() => window.location.href = '/annonce/' + ad.id}>
+                <article key={ad.id} className="ad-card" onClick={() => window.location.href = '/annonce/' + generateSlug(ad)}>
                   <div className="ad-media">
                     {ad.images?.[0] ? (
                       <img src={ad.images[0]} alt={ad.title} />

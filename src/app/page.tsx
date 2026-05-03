@@ -6,6 +6,7 @@ import { useUnreadCount } from '@/hooks/useUnreadCount'
 import { SUBCATEGORIES } from '@/lib/categories'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 import { LAUNCH_CITIES, LAUNCH_MAIN_CATEGORIES, LAUNCH_SUBCATEGORIES, matchesCategoryGroup } from '@/lib/market-config'
+import { generateSlug } from '@/lib/slug'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -562,7 +563,7 @@ export default function Home() {
                 </button>
               </div>
             ) : immoAds.map((ad: any) => (
-              <div key={ad.id} className="immo-card" onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + ad.id }}
+              <div key={ad.id} className="immo-card" onClick={() => { setSelectedImmoAd(ad); window.location.href='/annonce/' + generateSlug(ad) }}
                 style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: selectedImmoAd?.id === ad.id ? '2px solid #1a7a4a' : (FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9'), boxShadow: selectedImmoAd?.id === ad.id ? '0 4px 20px rgba(26,122,74,0.15)' : '0 1px 4px rgba(0,0,0,0.06)'}}>
                 {/* Photo */}
                 <div style={{height:'136px', background:'#f5f7f5', overflow:'hidden', position:'relative'}}>
@@ -650,7 +651,7 @@ export default function Home() {
                   <div style={{fontSize:'0.72rem', color:'#6b7c6e'}}>📍 {selectedImmoAd.province}</div>
                 </div>
                 <div style={{display:'flex', flexDirection:'column', gap:'6px', flexShrink:0}}>
-                  <button onClick={() => window.location.href='/annonce/' + selectedImmoAd.id}
+                  <button onClick={() => window.location.href='/annonce/' + generateSlug(selectedImmoAd)}
                     style={{padding:'7px 12px', background:'#1a7a4a', border:'none', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.75rem', color:'white', cursor:'pointer', whiteSpace:'nowrap'}}>
                     Voir →
                   </button>
@@ -750,7 +751,7 @@ export default function Home() {
           ) : (
             <div className="ads-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px'}}>
               {displayAds.map((ad: any) => (
-                <div key={ad.id} className="ad-card" onClick={() => window.location.href='/annonce/' + ad.id}
+                <div key={ad.id} className="ad-card" onClick={() => window.location.href='/annonce/' + generateSlug(ad)}
                   style={{background:'white', borderRadius:'14px', overflow:'hidden', cursor:'pointer', border: FEATURE_FLAGS.boostedListings && ad.is_boosted ? '1.5px solid #f5a623' : '1px solid #e8ede9', boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
                   <div style={{height:'176px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'3.5rem', overflow:'hidden', position:'relative'}}>
                     {ad.images && ad.images.length > 0 ? (
@@ -776,7 +777,7 @@ export default function Home() {
                       {Number(ad.price).toLocaleString()} <span style={{fontSize:'0.75rem', fontWeight:600}}>RWF</span>
                     </div>
                     {ad.province && <div style={{fontSize:'0.72rem', color:'#6b7c6e', marginBottom:'10px'}}>📍 {ad.province}</div>}
-                    <button onClick={e => { e.stopPropagation(); window.location.href='/annonce/' + ad.id }} style={{width:'100%', padding:'8px', background:'#f5f7f5', color:'#0f5233', border:'1px solid #d4e6da', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.8rem', cursor:'pointer'}}>
+                    <button onClick={e => { e.stopPropagation(); window.location.href='/annonce/' + generateSlug(ad) }} style={{width:'100%', padding:'8px', background:'#f5f7f5', color:'#0f5233', border:'1px solid #d4e6da', borderRadius:'8px', fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.8rem', cursor:'pointer'}}>
                       Voir l annonce
                     </button>
                   </div>

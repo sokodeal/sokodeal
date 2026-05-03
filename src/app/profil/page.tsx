@@ -6,6 +6,7 @@ import FavoriteButton from '@/components/FavoriteButton'
 import Header from '@/components/Header'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 import { LAUNCH_CITIES } from '@/lib/market-config'
+import { generateSlug } from '@/lib/slug'
 
 function AlertesTab({ userId }: { userId: string }) {
   const [searches, setSearches] = useState<any[]>([])
@@ -799,7 +800,7 @@ export default function ProfilPage() {
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:700, fontSize:'0.82rem', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#111a14'}}>{ad.title}</div>
                       <div style={{fontFamily:'Syne,sans-serif', fontWeight:800, color:'#1a7a4a', fontSize:'0.9rem', marginBottom:'8px'}}>{Number(ad.price).toLocaleString()} RWF</div>
                       <div style={{display:'flex', gap:'5px'}}>
-                        <button onClick={() => window.location.href='/annonce/' + ad.id} style={{flex:1, padding:'6px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', cursor:'pointer'}}>
+                        <button onClick={() => window.location.href='/annonce/' + generateSlug(ad)} style={{flex:1, padding:'6px', background:'#f5f7f5', border:'1px solid #e8ede9', borderRadius:'6px', fontSize:'0.72rem', fontWeight:600, color:'#6b7c6e', cursor:'pointer'}}>
                           Voir
                         </button>
                         {!ad.is_sold ? (
@@ -848,7 +849,7 @@ export default function ProfilPage() {
             ) : (
               <div className="fav-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px'}}>
                 {favoriteAds.map((ad: any) => (
-                  <div key={ad.id} style={{background:'white', borderRadius:'12px', overflow:'hidden', border:'1px solid #e8ede9', cursor:'pointer'}} onClick={() => window.location.href='/annonce/' + ad.id}>
+                  <div key={ad.id} style={{background:'white', borderRadius:'12px', overflow:'hidden', border:'1px solid #e8ede9', cursor:'pointer'}} onClick={() => window.location.href='/annonce/' + generateSlug(ad)}>
                     <div style={{height:'140px', background:'#f5f7f5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2.5rem', position:'relative', overflow:'hidden'}}>
                       {ad.images && ad.images.length > 0 ? (
                         <img src={ad.images[0]} alt={ad.title} style={{width:'100%', height:'100%', objectFit:'cover'}}/>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Header from '@/components/Header'
+import { extractIdFromSlug, generateSlug, isFullUUID } from '@/lib/slug'
 
 function ReportButton({ adId, userId }: { adId: string, userId?: string }) {
   const [showForm, setShowForm] = useState(false)
@@ -98,7 +99,26 @@ export default function AnnonceDetail() {
 
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.from('ads').select('*').eq('id', id).single()
+      const rawId = Array.isArray(id) ? id[0] : String(id || '')
+      let data: any = null
+
+      if (isFullUUID(rawId)) {
+        const result = await supabase.from('ads').select('*').eq('id', rawId).single()
+        data = result.data
+        if (data) {
+          window.location.replace('/annonce/' + generateSlug(data))
+          return
+        }
+      } else {
+        const shortId = extractIdFromSlug(rawId)
+        const result = await supabase
+          .from('ads')
+          .select('*')
+          .ilike('id', shortId + '%')
+          .single()
+        data = result.data
+      }
+
       if (data) {
         setAd(data)
         // ✅ Charger le profil du vendeur
@@ -110,6 +130,9 @@ export default function AnnonceDetail() {
             .single()
           setSeller(sellerData)
         }
+      } else {
+        setLoading(false)
+        return
       }
       const { data: authData } = await supabase.auth.getUser()
       setUser(authData.user)
@@ -147,6 +170,92 @@ export default function AnnonceDetail() {
     return () => document.removeEventListener('click', close)
   }, [showShareMenu])
 
+  useEffect(() => {
+    if (!ad) return
+
+    document.title = `${ad.title} - ${Number(ad.price).toLocaleString()} RWF | SokoDeal`
+
+    const desc = ad.description
+      ? ad.description.slice(0, 155)
+      : `${ad.title} a ${ad.province || 'Kigali'} pour ${Number(ad.price).toLocaleString()} RWF sur SokoDeal.`
+
+    const setMeta = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement
+      if (!el) {
+        el = document.createElement('meta')
+        el.name = name
+        document.head.appendChild(el)
+      }
+      el.content = content
+    }
+
+    const setOG = (property: string, content: string) => {
+      let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement
+      if (!el) {
+        el = document.createElement('meta')
+        el.setAttribute('property', property)
+        document.head.appendChild(el)
+      }
+      el.content = content
+    }
+
+    setMeta('description', desc)
+    setOG('og:title', ad.title)
+    setOG('og:description', desc)
+    setOG('og:image', ad.images?.[0] || '')
+    setOG('og:url', window.location.href)
+    setOG('og:type', 'website')
+
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = window.location.origin + '/annonce/' + generateSlug(ad)
+  }, [ad])
+
+  useEffect(() => {
+    if (!ad) return
+
+    const isVehicle = ['voiture', 'moto'].includes(ad.category)
+    const isRealEstate = ['immo-vente', 'immo-location', 'immo-terrain'].includes(ad.category)
+
+    const schema: any = {
+      '@context': 'https://schema.org',
+      '@type': isVehicle ? 'Vehicle' : isRealEstate ? 'RealEstateListing' : 'Product',
+      name: ad.title,
+      description: ad.description || ad.title,
+      image: ad.images || [],
+      offers: {
+        '@type': 'Offer',
+        price: ad.price,
+        priceCurrency: 'RWF',
+        availability: 'https://schema.org/InStock',
+        url: window.location.href,
+      },
+      seller: {
+        '@type': 'Person',
+        name: seller?.full_name || 'Vendeur SokoDeal',
+      },
+    }
+
+    if (ad.province) {
+      schema.locationCreated = { '@type': 'Place', name: ad.province + ', Rwanda' }
+    }
+
+    let scriptEl = document.getElementById('jsonld-ad') as HTMLScriptElement
+    if (!scriptEl) {
+      scriptEl = document.createElement('script')
+      scriptEl.id = 'jsonld-ad'
+      scriptEl.type = 'application/ld+json'
+      document.head.appendChild(scriptEl)
+    }
+    scriptEl.textContent = JSON.stringify(schema)
+
+    return () => { scriptEl?.remove() }
+  }, [ad, seller])
+
   // ✅ Contact → redirige directement vers la messagerie
   const handleContact = async () => {
     if (!message.trim()) return
@@ -173,7 +282,7 @@ export default function AnnonceDetail() {
 
   const getShareUrl = () => {
     if (typeof window !== 'undefined') return window.location.href
-    return 'https://sokodeal.app/annonce/' + id
+    return ad ? 'https://sokodeal.app/annonce/' + generateSlug(ad) : 'https://sokodeal.app'
   }
 
   const shareText = ad ? ad.title + ' - ' + Number(ad.price).toLocaleString() + ' RWF sur SokoDeal' : ''

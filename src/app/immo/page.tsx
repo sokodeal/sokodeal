@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Header from '@/components/Header'
+import { generateSlug } from '@/lib/slug'
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
@@ -253,7 +254,7 @@ export default function ImmoPage() {
                       </div>
                       {ad.province && <div style={{ fontSize: '0.75rem', color: '#6b7c6e', marginBottom: '6px' }}>📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}</div>}
                       {ad.description && <p style={{ fontSize: '0.75rem', color: '#6b7c6e', margin: '0 0 10px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ad.description}</p>}
-                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + ad.id }}
+                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + generateSlug(ad) }}
                         style={{ padding: '6px 14px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
                         Voir le bien
                       </button>
@@ -262,7 +263,7 @@ export default function ImmoPage() {
                 ) : (
                   // VUE GRILLE SANS CARTE
                   <div key={ad.id} className="immo-card"
-                    onClick={() => window.location.href = '/annonce/' + ad.id}
+                    onClick={() => window.location.href = '/annonce/' + generateSlug(ad)}
                     style={{ background: 'white', borderRadius: '14px', overflow: 'hidden', cursor: 'pointer', border: '1px solid #e8ede9', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ height: '180px', background: '#f5f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', overflow: 'hidden', position: 'relative' }}>
                       {ad.images && ad.images.length > 0 ? (
@@ -283,7 +284,7 @@ export default function ImmoPage() {
                         {ad.category === 'immo-location' && <span style={{ fontSize: '0.62rem', color: '#6b7c6e' }}>/mois</span>}
                       </div>
                       {ad.province && <div style={{ fontSize: '0.75rem', color: '#6b7c6e', marginBottom: '10px' }}>📍 {ad.province}{ad.district ? ' · ' + ad.district : ''}</div>}
-                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + ad.id }}
+                      <button onClick={e => { e.stopPropagation(); window.location.href = '/annonce/' + generateSlug(ad) }}
                         style={{ width: '100%', padding: '8px', background: '#f5f7f5', color: '#0f5233', border: '1px solid #d4e6da', borderRadius: '8px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
                         Voir le bien
                       </button>
@@ -311,7 +312,7 @@ export default function ImmoPage() {
                   {selectedAd.province && <div style={{ fontSize: '0.72rem', color: '#6b7c6e' }}>📍 {selectedAd.province}</div>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                  <button onClick={() => window.location.href = '/annonce/' + selectedAd.id}
+                  <button onClick={() => window.location.href = '/annonce/' + generateSlug(selectedAd)}
                     style={{ padding: '6px 12px', background: '#1a7a4a', color: 'white', border: 'none', borderRadius: '7px', fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>
                     Voir
                   </button>
