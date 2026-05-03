@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import FavoriteButton from '@/components/FavoriteButton'
 import { supabase } from '@/lib/supabase'
@@ -45,12 +45,9 @@ export default function PublicProfile() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [bannerMsg, setBannerMsg] = useState('')
-  const [bannerPosition, setBannerPosition] = useState('50% 50%')
-  const [savedBannerPosition, setSavedBannerPosition] = useState('50% 50%')
   const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null)
   const [bannerCropFile, setBannerCropFile] = useState<File | null>(null)
   const [pendingBannerUrl, setPendingBannerUrl] = useState('')
-  const [isDraggingBanner, setIsDraggingBanner] = useState(false)
   const [editMsg, setEditMsg] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
@@ -59,7 +56,6 @@ export default function PublicProfile() {
   const [reviewSuccess, setReviewSuccess] = useState('')
   const [alreadyReviewed, setAlreadyReviewed] = useState(false)
   const [currentUserReview, setCurrentUserReview] = useState<any>(null)
-  const bannerDragRef = useRef({ x: 0, y: 0, posX: 50, posY: 50 })
 
   const loadSellerReviews = async (sellerId: string) => {
     const { data: reviewsWithReviewer, error: relationError } = await supabase
@@ -112,12 +108,6 @@ export default function PublicProfile() {
       setProfile(userData)
       setEditForm({ bio: userData.bio || '', location: userData.location || '' })
       setIsOwner(!!user && user.id === userData.id)
-      const savedBannerPosition = window.localStorage.getItem(`sokodeal:banner-position:${userData.id}`)
-      if (savedBannerPosition) {
-        setBannerPosition(savedBannerPosition)
-        setSavedBannerPosition(savedBannerPosition)
-      }
-
       const [{ data: adsData }, reviewsData] = await Promise.all([
         supabase
           .from('ads')
@@ -170,7 +160,6 @@ export default function PublicProfile() {
 
     setPendingBannerFile(croppedFile)
     setPendingBannerUrl(URL.createObjectURL(croppedFile))
-    setBannerPosition('50% 50%')
     setBannerMsg('')
     setBannerCropFile(null)
   }
@@ -211,8 +200,6 @@ export default function PublicProfile() {
       setBannerMsg(updateError.message)
     } else {
       setProfile({ ...profile, banner_url: publicUrl })
-      setSavedBannerPosition(bannerPosition)
-      window.localStorage.setItem(`sokodeal:banner-position:${profile.id}`, bannerPosition)
       setBannerMsg('Banniere mise a jour')
       setPendingBannerFile(null)
       if (pendingBannerUrl) URL.revokeObjectURL(pendingBannerUrl)
@@ -227,50 +214,7 @@ export default function PublicProfile() {
     if (pendingBannerUrl) URL.revokeObjectURL(pendingBannerUrl)
     setPendingBannerFile(null)
     setPendingBannerUrl('')
-    setBannerPosition(savedBannerPosition)
     setBannerMsg('')
-  }
-
-  const updateBannerPosition = (position: string) => {
-    setBannerPosition(position)
-    if (profile?.id && !pendingBannerFile) {
-      window.localStorage.setItem(`sokodeal:banner-position:${profile.id}`, position)
-      setSavedBannerPosition(position)
-    }
-  }
-
-  const readBannerPosition = (position: string) => {
-    const [x = '50%', y = '50%'] = position.split(' ')
-    return {
-      x: Number.parseFloat(x) || 50,
-      y: Number.parseFloat(y) || 50,
-    }
-  }
-
-  const handleBannerPointerDown = (e: any) => {
-    if (!isOwner || !(pendingBannerUrl || profile?.banner_url)) return
-    if (e.target.closest('.banner-edit, .banner-confirm-bar')) return
-    setIsDraggingBanner(true)
-    e.currentTarget.setPointerCapture?.(e.pointerId)
-    const pos = readBannerPosition(bannerPosition)
-    bannerDragRef.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y }
-  }
-
-  const handleBannerPointerMove = (e: any) => {
-    if (!isDraggingBanner) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const drag = bannerDragRef.current
-    const deltaX = ((e.clientX - drag.x) / rect.width) * 100
-    const deltaY = ((e.clientY - drag.y) / rect.height) * 100
-    const nextX = Math.max(0, Math.min(100, drag.posX - deltaX))
-    const nextY = Math.max(0, Math.min(100, drag.posY - deltaY))
-    updateBannerPosition(`${nextX.toFixed(1)}% ${nextY.toFixed(1)}%`)
-  }
-
-  const handleBannerPointerUp = (e: any) => {
-    if (!isDraggingBanner) return
-    setIsDraggingBanner(false)
-    e.currentTarget.releasePointerCapture?.(e.pointerId)
   }
 
   const handleSaveProfile = async () => {
@@ -417,7 +361,6 @@ export default function PublicProfile() {
       {bannerCropFile && (
         <ImageCropModal
           file={bannerCropFile}
-          aspect={3 / 1}
           onConfirm={handleBannerCropConfirm}
           onCancel={() => setBannerCropFile(null)}
         />
@@ -527,12 +470,6 @@ export default function PublicProfile() {
           touch-action: none;
           user-select: none;
         }
-        .hero.can-drag {
-          cursor: grab;
-        }
-        .hero.dragging {
-          cursor: grabbing;
-        }
         .hero img,
         .hero-fallback {
           width: 100%;
@@ -602,20 +539,6 @@ export default function PublicProfile() {
           flex-wrap: wrap;
           justify-content: flex-end;
           max-width: 420px;
-        }
-        .drag-hint {
-          position: absolute;
-          left: 5%;
-          top: 18px;
-          z-index: 2;
-          border: 1px solid rgba(255,255,255,0.42);
-          border-radius: 999px;
-          background: rgba(17,26,20,0.58);
-          color: #fff;
-          padding: 5px 9px;
-          font-size: 0.66rem;
-          font-weight: 900;
-          backdrop-filter: blur(8px);
         }
         .banner-confirm-btn {
           border: 1px solid rgba(255,255,255,0.42);
@@ -1201,11 +1124,6 @@ export default function PublicProfile() {
             bottom: auto;
             max-width: none;
           }
-          .drag-hint {
-            left: 4%;
-            top: 52px;
-            font-size: 0.64rem;
-          }
           .banner-confirm-bar {
             top: 94px;
             right: 4%;
@@ -1279,16 +1197,9 @@ export default function PublicProfile() {
         </div>
       </header>
 
-      <section
-        className={'hero' + (isOwner && (pendingBannerUrl || profile.banner_url) ? ' can-drag' : '') + (isDraggingBanner ? ' dragging' : '')}
-        onPointerDown={handleBannerPointerDown}
-        onPointerMove={handleBannerPointerMove}
-        onPointerUp={handleBannerPointerUp}
-        onPointerCancel={handleBannerPointerUp}
-        onPointerLeave={handleBannerPointerUp}
-      >
+      <section className="hero"> 
         {pendingBannerUrl || profile.banner_url ? (
-          <img src={pendingBannerUrl || profile.banner_url} alt="Banniere du profil" style={{ objectPosition: bannerPosition }} />
+          <img src={pendingBannerUrl || profile.banner_url} alt="Banniere du profil" />
         ) : (
           <div className="hero-fallback" />
         )}
@@ -1299,11 +1210,9 @@ export default function PublicProfile() {
             <input type="file" accept="image/*" onChange={handleBannerFileSelect} disabled={uploadingBanner} style={{ display: 'none' }} />
           </label>
         )}
-        {isOwner && pendingBannerUrl && <span className="drag-hint">Glisse la photo pour ajuster</span>}
-        {isOwner && (pendingBannerUrl || profile.banner_url) && (
+        {isOwner && pendingBannerFile && (
           <div className="banner-confirm-bar">
-            {pendingBannerFile && (
-              <>
+            <>
               <button
                 type="button"
                 className="banner-confirm-btn primary"
@@ -1320,8 +1229,7 @@ export default function PublicProfile() {
               >
                 Annuler
               </button>
-              </>
-            )}
+            </>
           </div>
         )}
         {isOwner && bannerMsg && <div className="banner-message">{bannerMsg}</div>}

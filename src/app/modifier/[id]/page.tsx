@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
+import ImageCropModal from '@/components/ImageCropModal'
 
 const INDICATIFS = [
   { code: '+250', flag: '🇷🇼', pays: 'Rwanda' },
@@ -23,6 +24,9 @@ export default function ModifierAnnoncePage() {
   const [msg, setMsg] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [uploadingImg, setUploadingImg] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropIndex, setCropIndex] = useState(0)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -105,22 +109,57 @@ export default function ModifierAnnoncePage() {
     init()
   }, [id])
 
-  const handleImageUpload = async (e: any) => {
-    const files = Array.from(e.target.files || [])
-    if (images.length + files.length > 5) { setMsg('❌ Maximum 5 photos'); return }
+  const uploadImageFile = async (file: File) => {
     setUploadingImg(true)
-    const uploaded: string[] = []
-    for (const file of files as File[]) {
+    try {
       const ext = file.name.split('.').pop()
       const path = `ads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error } = await supabase.storage.from('ads-images').upload(path, file)
       if (!error) {
         const { data: urlData } = supabase.storage.from('ads-images').getPublicUrl(path)
-        uploaded.push(urlData.publicUrl)
+        setImages(prev => [...prev, urlData.publicUrl].slice(0, 5))
       }
+    } finally {
+      setUploadingImg(false)
     }
-    setImages(prev => [...prev, ...uploaded])
-    setUploadingImg(false)
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (files.length === 0) return
+
+    const remaining = 5 - images.length
+    if (remaining <= 0) {
+      setMsg('Maximum 5 photos')
+      return
+    }
+
+    const toProcess = files.slice(0, remaining)
+    if (files.length > remaining) setMsg('Maximum 5 photos. Les photos en plus ont ete ignorees.')
+    else setMsg('')
+    setPendingFiles(toProcess)
+    setCropIndex(0)
+    setCropFile(toProcess[0])
+  }
+
+  const handleCropConfirm = async (croppedFile: File) => {
+    await uploadImageFile(croppedFile)
+    const nextIndex = cropIndex + 1
+    if (nextIndex < pendingFiles.length && images.length + nextIndex < 5) {
+      setCropIndex(nextIndex)
+      setCropFile(pendingFiles[nextIndex])
+    } else {
+      setCropFile(null)
+      setPendingFiles([])
+      setCropIndex(0)
+    }
+  }
+
+  const handleCropCancel = () => {
+    setCropFile(null)
+    setPendingFiles([])
+    setCropIndex(0)
   }
 
   const removeImage = (idx: number) => {
@@ -169,6 +208,13 @@ export default function ModifierAnnoncePage() {
 
   return (
     <div style={{minHeight:'100vh', background:'#f5f7f5'}}>
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
 
       {/* HEADER */}
       <header style={{background:'white', borderBottom:'1px solid #e8ede9', position:'sticky', top:0, zIndex:100}}>
